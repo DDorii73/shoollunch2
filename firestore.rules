@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// 관리자 UID 목록 (여러 개의 UID를 쉼표로 구분하여 추가 가능)
+// 실제 배포 시 여기에 관리자 UID를 입력하세요
+// 예: 'adminUid1' in ['uid1', 'uid2', 'uid3']
+function isAdmin() {
+  return request.auth != null && 
+         request.auth.uid in ['YOUR_ADMIN_UID_1', 'YOUR_ADMIN_UID_2']; // 여기에 실제 관리자 UID를 입력하세요
+}
+
+// 인증된 사용자인지 확인
+function isAuthenticated() {
+  return request.auth != null;
+}
+
+// 자신의 데이터인지 확인
+function isOwner(userId) {
+  return isAuthenticated() && request.auth.uid == userId;
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // users 컬렉션: 사용자 기본 정보
+    match /users/{userId} {
+      // 읽기: 자신의 데이터 또는 관리자
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // 쓰기: 자신의 데이터만 (처음 생성 시) 또는 관리자
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin(); // 삭제는 관리자만
+    }
+    
+    // userRecords 컬렉션: 사용자 신체 정보
+    match /userRecords/{userId} {
+      // 읽기: 자신의 데이터 또는 관리자
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // 쓰기: 자신의 데이터만 또는 관리자
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin(); // 삭제는 관리자만
+      
+      // dailyRecords 서브컬렉션: 날짜별 신체 기록
+      match /dailyRecords/{date} {
+        // 읽기: 자신의 데이터 또는 관리자
+        allow read: if isOwner(userId) || isAdmin();
+        
+        // 쓰기: 자신의 데이터만 또는 관리자
+        allow create: if isOwner(userId) || isAdmin();
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isAdmin(); // 삭제는 관리자만
+      }
+    }
+    
+    // foodRecords 컬렉션: 음식 기록
+    match /foodRecords/{recordId} {
+      // 읽기: 자신의 데이터 (userId 필드 확인) 또는 관리자
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // 쓰기: 자신의 데이터만 (userId 필드가 자신의 UID와 일치) 또는 관리자
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin(); // 삭제는 관리자만
+    }
+    
+    // chatHistory 컬렉션: 챗봇 대화 기록
+    match /chatHistory/{userId} {
+      // 읽기: 자신의 데이터 또는 관리자
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // 쓰기: 자신의 데이터만 또는 관리자
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin(); // 삭제는 관리자만
+      
+      // 대화 메시지 서브컬렉션
+      match /messages/{messageId} {
+        // 읽기: 자신의 데이터 또는 관리자
+        allow read: if isOwner(userId) || isAdmin();
+        
+        // 쓰기: 자신의 데이터만 또는 관리자
+        allow create: if isOwner(userId) || isAdmin();
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isAdmin(); // 삭제는 관리자만
+      }
+    }
+    
+    // 다른 모든 문서는 기본적으로 거부
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
