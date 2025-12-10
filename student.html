@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>학생 활동 - 급식 관리</title>
   <link rel="stylesheet" href="/src/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="student-container">
@@ -46,8 +47,18 @@
           
           <div id="lunch-menu-list" class="menu-list"></div>
           
+          <!-- 섭취량 막대그래프 -->
+          <div class="consumption-chart-container" style="margin: 20px 0;">
+            <h4 style="margin-bottom: 10px; color: var(--text-color);">📊 음식별 섭취량</h4>
+            <p style="font-size: 12px; color: var(--text-light); margin-bottom: 15px;">
+              골고루 1인분씩 드시는 것을 권장합니다 💚
+            </p>
+            <canvas id="consumption-chart"></canvas>
+          </div>
+          
           <div class="calorie-summary">
             <h4>총 칼로리: <span id="lunch-total-calories">0</span> kcal</h4>
+            <p id="calorie-detail" style="font-size: 14px; margin-top: 8px; color: var(--text-light); display: none;"></p>
           </div>
           
           <button id="submit-lunch-btn" class="submit-btn lunch-submit">점심 제출하기</button>
@@ -65,8 +76,18 @@
             <div class="food-input-group">
               <input type="text" id="snack-input" placeholder="간식 이름을 입력하세요 (예: 우유, 빵, 과자)" />
               <button id="add-snack-btn" class="add-btn">추가</button>
+              <button id="camera-snack-btn" class="camera-btn" title="사진으로 간식 입력">📷</button>
             </div>
+            <input type="file" id="snack-image-input" accept="image/*" capture="environment" style="display: none;" />
             <div class="food-list" id="snack-foods"></div>
+            <div id="snack-image-preview" style="display: none; margin-top: 10px;">
+              <img id="snack-preview-img" style="max-width: 200px; max-height: 200px; border-radius: 8px;" />
+              <div style="margin-top: 10px;">
+                <button id="analyze-snack-btn" class="analyze-btn">AI 분석하기</button>
+                <button id="cancel-snack-image-btn" class="cancel-btn" style="margin-left: 10px;">취소</button>
+              </div>
+              <div id="snack-analysis-result" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px; display: none;"></div>
+            </div>
           </div>
           
           <button id="submit-snack-btn" class="submit-btn snack-submit">간식 제출하기</button>

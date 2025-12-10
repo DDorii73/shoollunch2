@@ -40,6 +40,11 @@ const endDateInput = document.getElementById('end-date');
 const loadChartBtn = document.getElementById('load-chart-btn');
 const chartCanvas = document.getElementById('weight-bmi-chart');
 
+// 월별 음식 기록 관련 DOM 요소
+const monthSelect = document.getElementById('month-select');
+const loadFoodRecordsBtn = document.getElementById('load-food-records-btn');
+const foodRecordsContainer = document.getElementById('food-records-container');
+
 let currentUser = null;
 let calculatedBmi = null;
 let calculatedBmr = null;
@@ -531,6 +536,167 @@ if (loadChartBtn) {
   });
 }
 
+// 월 선택 드롭다운 초기화 (최근 12개월)
+function initializeMonthSelector() {
+  if (!monthSelect) return;
+  
+  monthSelect.innerHTML = '<option value="">월을 선택하세요</option>';
+  
+  const today = new Date();
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+    const monthLabel = `${year}년 ${month}월`;
+    
+    const option = document.createElement('option');
+    option.value = monthStr;
+    option.textContent = monthLabel;
+    monthSelect.appendChild(option);
+  }
+}
+
+// 월별 음식 기록 불러오기
+async function loadMonthlyFoodRecords() {
+  if (!currentUser || !monthSelect.value) {
+    alert('월을 선택해주세요.');
+    return;
+  }
+  
+  const selectedMonth = monthSelect.value; // "YYYY-MM" 형식
+  const [year, month] = selectedMonth.split('-').map(Number);
+  
+  // 해당 월의 시작일과 종료일 계산
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0); // 해당 월의 마지막 날
+  
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = endDate.toISOString().split('T')[0];
+  
+  try {
+    foodRecordsContainer.innerHTML = '<p>기록을 불러오는 중...</p>';
+    
+    const recordsRef = collection(db, 'foodRecords');
+    // 인덱스 없이 작동하도록 userId만으로 필터링하고 클라이언트 측에서 날짜 필터링
+    const q = query(
+      recordsRef,
+      where('userId', '==', currentUser.uid)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      foodRecordsContainer.innerHTML = `<p class="no-records-message">${year}년 ${month}월에는 기록된 음식이 없습니다.</p>`;
+      return;
+    }
+    
+    // 날짜별로 그룹화하고 해당 월의 데이터만 필터링
+    const recordsByDate = {};
+    querySnapshot.forEach(doc => {
+      const data = doc.data();
+      const date = data.date;
+      
+      // 해당 월의 데이터만 포함
+      if (date >= startDateStr && date <= endDateStr) {
+        if (!recordsByDate[date]) {
+          recordsByDate[date] = {
+            lunch: null,
+            snack: null
+          };
+        }
+        
+        if (data.type === 'lunch') {
+          recordsByDate[date].lunch = data;
+        } else if (data.type === 'snack') {
+          recordsByDate[date].snack = data;
+        }
+      }
+    });
+    
+    // 날짜별로 정렬 (최신순)
+    const sortedDates = Object.keys(recordsByDate).sort((a, b) => b.localeCompare(a));
+    
+    if (sortedDates.length === 0) {
+      foodRecordsContainer.innerHTML = `<p class="no-records-message">${year}년 ${month}월에는 기록된 음식이 없습니다.</p>`;
+      return;
+    }
+    
+    // HTML 생성
+    let html = `<h3 style="margin-bottom: 20px;">${year}년 ${month}월 음식 기록</h3>`;
+    
+    sortedDates.forEach(date => {
+      const records = recordsByDate[date];
+      const dateObj = new Date(date);
+      const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][dateObj.getDay()];
+      const formattedDate = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${dayOfWeek})`;
+      
+      html += `<div class="daily-food-record" style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 2px solid var(--border-color);">`;
+      html += `<h4 style="margin-bottom: 15px; color: var(--text-color);">📅 ${formattedDate}</h4>`;
+      
+      // 점심 기록
+      if (records.lunch) {
+        html += `<div style="margin-bottom: 15px;">`;
+        html += `<strong style="color: var(--primary-color);">🍱 점심:</strong>`;
+        html += `<ul style="margin-top: 8px; padding-left: 20px;">`;
+        
+        if (records.lunch.menuItems && records.lunch.menuItems.length > 0) {
+          records.lunch.menuItems.forEach(item => {
+            if (item.count > 0) {
+              html += `<li>${item.name} ${item.count}인분</li>`;
+            }
+          });
+        }
+        
+        if (records.lunch.totalCalories) {
+          html += `<li style="margin-top: 5px; font-weight: 600; color: var(--primary-color);">총 칼로리: ${records.lunch.totalCalories}kcal</li>`;
+        }
+        
+        html += `</ul>`;
+        html += `</div>`;
+      }
+      
+      // 간식 기록
+      if (records.snack) {
+        html += `<div>`;
+        html += `<strong style="color: var(--secondary-color);">🍪 간식:</strong>`;
+        html += `<ul style="margin-top: 8px; padding-left: 20px;">`;
+        
+        if (records.snack.snacks && records.snack.snacks.length > 0) {
+          records.snack.snacks.forEach(snack => {
+            html += `<li>${snack}</li>`;
+          });
+        } else {
+          html += `<li>기록 없음</li>`;
+        }
+        
+        html += `</ul>`;
+        html += `</div>`;
+      }
+      
+      // 기록이 없는 경우
+      if (!records.lunch && !records.snack) {
+        html += `<p style="color: var(--text-light);">기록 없음</p>`;
+      }
+      
+      html += `</div>`;
+    });
+    
+    foodRecordsContainer.innerHTML = html;
+    
+  } catch (error) {
+    console.error('월별 음식 기록 불러오기 오류:', error);
+    foodRecordsContainer.innerHTML = `<p style="color: red;">기록을 불러오는 중 오류가 발생했습니다: ${error.message}</p>`;
+  }
+}
+
+// 월별 음식 기록 불러오기 버튼 클릭
+if (loadFoodRecordsBtn) {
+  loadFoodRecordsBtn.addEventListener('click', async () => {
+    await loadMonthlyFoodRecords();
+  });
+}
+
 // 사용자 인증 상태 확인
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
@@ -539,6 +705,7 @@ if (auth) {
       console.log('✅ 사용자 로그인:', user.email);
       await loadSavedRecord();
       initializeDateRange();
+      initializeMonthSelector();
       // 기본 그래프 로드
       await loadChartData();
     } else {

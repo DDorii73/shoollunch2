@@ -427,6 +427,9 @@ body {
 .menu-calories {
   font-size: 14px;
   color: var(--text-light);
+  display: block;
+  margin-top: 5px;
+  font-weight: 500;
 }
 
 .menu-controls {
@@ -496,6 +499,30 @@ body {
   color: var(--text-color);
   font-size: 20px;
   margin: 0;
+}
+
+.consumption-chart-container {
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  border: 2px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+.consumption-chart-container h4 {
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: var(--text-color);
+}
+
+.consumption-chart-container p {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 15px;
+}
+
+#consumption-chart {
+  max-height: 300px;
 }
 
 .calorie-summary span {
@@ -622,6 +649,60 @@ body {
 
 .add-btn:hover {
   background: #F57C00;
+}
+
+.camera-btn {
+  padding: 10px 15px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 18px;
+  transition: all 0.3s;
+}
+
+.camera-btn:hover {
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+  transform: scale(1.05);
+}
+
+.analyze-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.analyze-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(255, 140, 105, 0.4);
+}
+
+.analyze-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: #757575;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.cancel-btn:hover {
+  background: #616161;
 }
 
 .save-btn {
@@ -1053,6 +1134,79 @@ body {
   height: 400px;
   width: 100%;
   margin-top: 20px;
+}
+
+.month-selector {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 15px;
+  align-items: end;
+  margin-bottom: 30px;
+}
+
+.month-selector .input-group {
+  margin-bottom: 0;
+}
+
+.month-select {
+  padding: 12px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  width: 100%;
+  transition: all 0.3s;
+}
+
+.month-select:focus {
+  outline: none;
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 3px rgba(255, 140, 105, 0.1);
+}
+
+.food-records-container {
+  margin-top: 20px;
+}
+
+.daily-food-record {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  transition: all 0.3s;
+}
+
+.daily-food-record:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.daily-food-record h4 {
+  margin-bottom: 15px;
+  color: var(--text-color);
+  font-size: 18px;
+}
+
+.daily-food-record ul {
+  margin-top: 8px;
+  padding-left: 20px;
+}
+
+.daily-food-record li {
+  margin-bottom: 5px;
+  color: var(--text-color);
+}
+
+.no-records-message {
+  text-align: center;
+  color: var(--text-light);
+  padding: 40px;
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .month-selector {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
