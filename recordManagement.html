@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기록 관리 - 급식 관리</title>
+  <link rel="stylesheet" href="/src/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="student-container">
+    <header class="student-header">
+      <h1>📋 기록 관리</h1>
+      <button id="back-btn" class="back-btn">← 돌아가기</button>
+    </header>
+
+    <div class="record-section">
+      <div class="record-container">
+        <h2>신체 정보 입력</h2>
+        <p class="meal-description">키와 몸무게를 입력하면 비만율(BMI)과 기초대사량(BMR)을 계산해드립니다.</p>
+        
+        <div class="meal-record">
+          <div class="input-section">
+            <div class="input-group">
+              <label for="height-input">키 (cm)</label>
+              <input type="number" id="height-input" placeholder="예: 170" min="50" max="250" step="0.1" />
+            </div>
+            
+            <div class="input-group">
+              <label for="weight-input">몸무게 (kg)</label>
+              <input type="number" id="weight-input" placeholder="예: 60" min="20" max="200" step="0.1" />
+            </div>
+            
+            <div class="input-group">
+              <label for="target-weight-input">목표 몸무게 (kg)</label>
+              <input type="number" id="target-weight-input" placeholder="예: 55" min="20" max="200" step="0.1" />
+            </div>
+            
+            <div class="input-group">
+              <label for="age-input">나이</label>
+              <input type="number" id="age-input" placeholder="예: 15" min="5" max="30" />
+            </div>
+            
+            <div class="input-group">
+              <label>성별</label>
+              <div class="gender-selector">
+                <label>
+                  <input type="radio" name="gender" value="male" checked>
+                  남성
+                </label>
+                <label>
+                  <input type="radio" name="gender" value="female">
+                  여성
+                </label>
+              </div>
+            </div>
+            
+            <button id="calculate-btn" class="submit-btn">저장하기</button>
+          </div>
+        </div>
+
+        <!-- 알레르기 입력 섹션 -->
+        <div class="meal-record">
+          <h3>알레르기 정보</h3>
+          <p class="meal-description">본인에게 해당하는 알레르기 항목을 선택해주세요.</p>
+          
+          <div class="allergy-section">
+            <div class="allergy-grid">
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="난류">
+                <span>① 난류</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="우유">
+                <span>② 우유</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="메밀">
+                <span>③ 메밀</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="땅콩">
+                <span>④ 땅콩</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="대두">
+                <span>⑤ 대두</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="밀">
+                <span>⑥ 밀</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="고등어">
+                <span>⑦ 고등어</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="게">
+                <span>⑧ 게</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="새우">
+                <span>⑨ 새우</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="돼지고기">
+                <span>⑩ 돼지고기</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="복숭아">
+                <span>⑪ 복숭아</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="토마토">
+                <span>⑫ 토마토</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="아황산류">
+                <span>⑬ 아황산류</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="호두">
+                <span>⑭ 호두</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="닭고기">
+                <span>⑮ 닭고기</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="쇠고기">
+                <span>⑯ 쇠고기</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="오징어">
+                <span>⑰ 오징어</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="조개류">
+                <span>⑱ 조개류</span>
+              </label>
+              <label class="allergy-checkbox">
+                <input type="checkbox" name="allergy" value="잣">
+                <span>⑲ 잣</span>
+              </label>
+            </div>
+            <button id="save-allergy-btn" class="submit-btn">알레르기 정보 저장</button>
+          </div>
+          
+          <div id="saved-allergy-info" class="saved-allergy-info hidden">
+            <h4>저장된 알레르기 정보</h4>
+            <div id="saved-allergy-list" class="allergy-tags"></div>
+          </div>
+        </div>
+        
+        <div id="result-section" class="meal-record hidden">
+          <h3>계산 결과</h3>
+          <div class="result-cards">
+            <div class="result-card">
+              <h4>BMI (비만율)</h4>
+              <p class="result-value" id="bmi-value">-</p>
+              <p class="result-status" id="bmi-status">-</p>
+            </div>
+            <div class="result-card">
+              <h4>BMR (기초대사량)</h4>
+              <p class="result-value" id="bmr-value">-</p>
+              <p class="result-unit">kcal/일</p>
+            </div>
+          </div>
+          <button id="save-btn" class="submit-btn">저장하기</button>
+        </div>
+        
+        <div id="saved-info" class="meal-record hidden">
+          <h3>저장된 정보</h3>
+          <div class="info-item">
+            <span>키:</span>
+            <span id="saved-height">-</span> cm
+          </div>
+          <div class="info-item">
+            <span>몸무게:</span>
+            <span id="saved-weight">-</span> kg
+          </div>
+          <div class="info-item">
+            <span>목표 몸무게:</span>
+            <span id="saved-target-weight">-</span> kg
+          </div>
+          <div class="info-item">
+            <span>나이:</span>
+            <span id="saved-age">-</span> 세
+          </div>
+          <div class="info-item">
+            <span>성별:</span>
+            <span id="saved-gender">-</span>
+          </div>
+          <div class="info-item">
+            <span>BMI:</span>
+            <span id="saved-bmi">-</span>
+          </div>
+          <div class="info-item">
+            <span>BMR:</span>
+            <span id="saved-bmr">-</span> kcal/일
+          </div>
+          <div class="info-item">
+            <span>알레르기:</span>
+            <span id="saved-allergy-summary">없음</span>
+          </div>
+          <p class="update-date">최종 업데이트: <span id="update-date">-</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 그래프 섹션 -->
+    <div class="record-section">
+      <div class="record-container">
+        <h2>몸무게 및 BMI 추이</h2>
+        <p class="meal-description">날짜 범위를 선택하여 몸무게와 BMI의 변화를 확인하세요.</p>
+        
+        <div class="meal-record">
+          <div class="date-range-selector">
+            <div class="input-group">
+              <label for="start-date">시작 날짜</label>
+              <input type="date" id="start-date" />
+            </div>
+            <div class="input-group">
+              <label for="end-date">종료 날짜</label>
+              <input type="date" id="end-date" />
+            </div>
+            <button id="load-chart-btn" class="submit-btn">그래프 불러오기</button>
+          </div>
+          
+          <div class="chart-container">
+            <canvas id="weight-bmi-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/recordManagement.js"></script>
+</body>
+</html>
+
