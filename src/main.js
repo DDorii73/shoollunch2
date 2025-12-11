@@ -1,8 +1,9 @@
 // 학생 활동 관리
 // ChatGPT API를 사용한 챗봇 및 음식 기록 기능
-import { auth, db } from './firebaseConfig.js';
+import { auth, db, storage } from './firebaseConfig.js';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // 오늘의 날짜 가져오기 (YYYY-MM-DD 형식)
 function getTodayDate() {
@@ -351,6 +352,8 @@ let userTargetWeight = null; // 사용자의 목표 몸무게 (kg)
 let userAge = null; // 사용자의 나이
 let userGender = null; // 사용자의 성별
 let userAllergies = []; // 사용자의 알레르기 정보
+let chatStartTime = null; // 대화 시작 시간
+let snackImages = []; // 업로드된 간식 사진들 (Storage URL 저장)
 
 // DOM 요소
 const chatbotSection = document.getElementById('chatbot-section');
@@ -376,6 +379,8 @@ const snackAnalysisResult = document.getElementById('snack-analysis-result');
 const submitLunchBtn = document.getElementById('submit-lunch-btn');
 const submitSnackBtn = document.getElementById('submit-snack-btn');
 const newLunchBtn = document.getElementById('new-lunch-btn');
+const userNameDisplay = document.getElementById('user-name-display');
+const userEmailDisplay = document.getElementById('user-email-display');
 const newSnackBtn = document.getElementById('new-snack-btn');
 const nutritionChatbotSection = document.getElementById('nutrition-chatbot-section');
 const nutritionChatMessages = document.getElementById('nutrition-chat-messages');
@@ -385,6 +390,7 @@ const closeNutritionBtn = document.getElementById('close-nutrition-btn');
 
 // 영양 브리핑 챗봇 상태
 let nutritionChatHistory = [];
+let nutritionChatTurn = 0; // 대화 턴 추적 (0: 초기, 1: 음식 양 피드백, 2: 알레르기 확인)
 
 // ChatGPT API 호출 함수
 async function callChatGPTAPI(userMessage) {
@@ -638,6 +644,7 @@ async function startChatbot() {
   // 챗봇 상태 초기화
   chatTurn = 0;
   chatHistory = [];
+  chatStartTime = new Date(); // 대화 시작 시간 기록
   
   // 먼저 오늘의 급식 메뉴를 가져옴 (API에서 실제 메뉴 가져오기)
   await fetchTodayMenu();
@@ -801,7 +808,57 @@ async function handleChatbotResponse(userMessage) {
 }
 
 // 대화 끝내기
-function endChatbot() {
+async function endChatbot() {
+  // 대화 내용을 Firestore에 저장
+  if (currentUser && chatStartTime && chatHistory.length > 0) {
+    try {
+      const chatEndTime = new Date();
+      const chatDuration = Math.floor((chatEndTime - chatStartTime) / 1000); // 초 단위
+      
+      // 날짜와 시간 분리
+      const now = new Date();
+      const date = getTodayDate();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const time = `${hours}:${minutes}`;
+      
+      const chatData = {
+        userId: currentUser.uid,
+        userName: currentUser.displayName || '익명',
+        userEmail: currentUser.email || '',
+        chatDuration: chatDuration, // 초 단위
+        chatHistory: chatHistory, // 전체 대화 내역
+        date: date,
+        time: time,
+        createdAt: serverTimestamp()
+      };
+      
+      // chatHistory 컬렉션에 저장 (사용자별 문서)
+      const chatHistoryRef = doc(db, 'chatHistory', currentUser.uid);
+      const chatHistoryData = await getDoc(chatHistoryRef);
+      
+      if (chatHistoryData.exists()) {
+        // 기존 문서가 있으면 messages 서브컬렉션에 추가
+        const messagesRef = collection(db, 'chatHistory', currentUser.uid, 'messages');
+        await addDoc(messagesRef, chatData);
+      } else {
+        // 기존 문서가 없으면 새로 생성하고 messages 서브컬렉션에 추가
+        await setDoc(chatHistoryRef, {
+          userId: currentUser.uid,
+          userName: currentUser.displayName || '익명',
+          userEmail: currentUser.email || '',
+          createdAt: serverTimestamp()
+        });
+        const messagesRef = collection(db, 'chatHistory', currentUser.uid, 'messages');
+        await addDoc(messagesRef, chatData);
+      }
+      
+      console.log('✅ 대화 내용이 Firestore에 저장되었습니다.');
+    } catch (error) {
+      console.error('❌ 대화 내용 저장 오류:', error);
+    }
+  }
+  
   chatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
   initializeRecordSection();
@@ -1401,6 +1458,12 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
     
     // 먹은 메뉴 중 알레르기 유발 음식 찾기
     const allergyDangerousMenus = [];
+    
+    // 디버깅: 알레르기 정보 확인
+    console.log('🔍 [알레르기 체크] 사용자 알레르기 정보:', userAllergies);
+    console.log('🔍 [알레르기 체크] 오늘 메뉴:', todayMenu.map(m => ({ name: m.name, allergyInfo: m.allergyInfo })));
+    console.log('🔍 [알레르기 체크] 먹은 메뉴:', eatenMenus.map(m => m.name));
+    
     if (userAllergies && userAllergies.length > 0) {
       // 알레르기 번호 매핑
       const allergyNumberMap = {
@@ -1414,11 +1477,21 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
         .map(allergy => allergyNumberMap[allergy])
         .filter(num => num !== undefined);
       
+      console.log('🔍 [알레르기 체크] 사용자 알레르기 번호:', userAllergyNumbers);
+      
       eatenMenus.forEach(item => {
-        // todayMenu에서 해당 메뉴의 알레르기 정보 찾기
+        // todayMenu에서 해당 메뉴의 알레르기 정보 찾기 (정확한 이름 매칭)
         const menuItem = todayMenu.find(m => m.name === item.name);
+        
+        if (!menuItem) {
+          console.warn(`⚠️ [알레르기 체크] 메뉴를 찾을 수 없음: ${item.name}`);
+          return;
+        }
+        
         if (menuItem && menuItem.allergyInfo && menuItem.allergyInfo.trim() !== '') {
           const menuAllergyNumbers = menuItem.allergyInfo.split('.').map(num => num.trim()).filter(num => num);
+          console.log(`🔍 [알레르기 체크] ${item.name}의 알레르기 번호:`, menuAllergyNumbers);
+          
           const hasAllergy = menuAllergyNumbers.some(num => userAllergyNumbers.includes(num));
           
           if (hasAllergy) {
@@ -1431,6 +1504,8 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
                 return allergyName || num;
               });
             
+            console.log(`⚠️ [알레르기 체크] 알레르기 유발 음식 발견: ${item.name} (${matchedAllergies.join(', ')})`);
+            
             allergyDangerousMenus.push({
               name: item.name,
               allergies: matchedAllergies
@@ -1438,6 +1513,10 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
           }
         }
       });
+      
+      console.log('🔍 [알레르기 체크] 최종 알레르기 유발 음식 목록:', allergyDangerousMenus);
+    } else {
+      console.log('⚠️ [알레르기 체크] 사용자 알레르기 정보가 없습니다.');
     }
     
     // 지나치게 많이 섭취된 음식 찾기 (3인분 이상)
@@ -1473,13 +1552,25 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
 ${menuSummary}
 총 칼로리: ${lunchData.totalCalories}kcal
 
-${userAllergies && userAllergies.length > 0 ? `알레르기 정보: ${userAllergies.join(', ')}` : ''}
+${userBMR ? `학생의 기초대사량(BMR): ${Math.round(userBMR)}kcal/일` : ''}
+
+${userAllergies && userAllergies.length > 0 ? `[사용자 알레르기 정보 - 매우 중요 - 반드시 확인]
+학생이 기록 관리 탭에 입력한 알레르기 정보: ${userAllergies.join(', ')}
+
+**절대 금지:**
+- 이 알레르기 정보를 무시하거나 다른 정보로 대체하지 마세요.
+- 이 알레르기 정보를 기반으로 알레르기 유발 음식을 판단해야 합니다.
+- 위의 알레르기 정보와 아래의 "알레르기 주의 사항"에 나열된 음식 목록을 반드시 일치시켜야 합니다.
+- 학생의 알레르기 정보(${userAllergies.join(', ')})가 있는데 "알레르기가 없다"고 말하지 마세요.` : ''}
 
 ${allergyDangerousMenus.length > 0 ? `[알레르기 주의 사항 - 매우 중요]
 학생이 먹은 음식 중 알레르기 반응을 유발할 수 있는 음식이 있어:
 ${allergyDangerousMenus.map(menu => `- ${menu.name} (알레르기: ${menu.allergies.join(', ')})`).join('\n')}
 
-**절대 금지: 알레르기 정보 일관성 유지**
+**매우 중요: 알레르기 정보 확인 방법**
+- 위의 "학생이 기록 관리 탭에 입력한 알레르기 정보"를 확인해: ${userAllergies && userAllergies.length > 0 ? userAllergies.join(', ') : '없음'}
+- 위의 "알레르기 주의 사항"에 나열된 음식들은 학생의 알레르기 정보와 메뉴의 알레르기 번호를 매칭하여 정확히 파악한 것입니다.
+- 이 정보를 절대로 무시하거나 다른 정보로 대체하지 마세요.
 - 위에 나열된 음식들은 이 대화 전체에서 계속 "주의해야 하는 음식"으로 일관되게 설명해줘.
 - 한 번 알레르기가 있다고 안내한 음식은 같은 대화 안에서 절대로 "알레르기가 없다"고 말하지 마.
 - 이전 대화 히스토리에서 이미 언급한 알레르기 정보를 확인하고, 계속 일관되게 유지해줘.
@@ -1522,14 +1613,24 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 9. 학생의 건강을 위한 따뜻한 조언을 해줘.
 10. **너무 딱딱하거나 형식적인 말투를 피하고, 친근하고 자연스러운 말투를 사용해줘.**
 11. **대화가 부드럽게 이어지도록 자연스러운 연결어를 사용해줘. 예: "그리고", "그런데", "그래서", "그럼" 등을 활용해서 대화를 자연스럽게 연결해줘.**
+12. **줄바꿈은 주제가 달라질 때만 사용해줘. 같은 주제의 내용은 줄바꿈 없이 이어서 말하고, 주제가 바뀔 때만 줄바꿈(\\n)을 사용해줘. 예: "밥은 1인분 먹었고, 된장찌개는 2인분 먹었네. 조금 더 먹었어.\\n\\n알레르기 있는 음식은 안 먹었네? 잘했어!" 또는 "밥은 1인분 먹었고, 된장찌개는 2인분 먹었네.\\n\\n어묵매운탕 먹었는데 괜찮아?" 이렇게 음식 양 피드백과 알레르기 관련 내용 사이에만 줄바꿈을 사용해줘.**
 ${userAllergies && userAllergies.length > 0 ? `11. **간식 추천 시 알레르기 정보 반영 (매우 중요):**
-   - 학생의 알레르기 정보: ${userAllergies.join(', ')}
-   - 간식을 추천할 때는 반드시 학생의 알레르기 정보를 확인해줘.
+   - 학생의 알레르기 정보 (기록 관리 탭에 입력한 정보): ${userAllergies.join(', ')}
+   - 간식을 추천할 때는 반드시 위의 알레르기 정보를 확인해줘.
    - ${userAllergies.join(', ')} 알레르기가 있는 음식은 절대 추천하지 마.
    - 알레르기 유발 성분이 포함된 간식(예: 난류 알레르기 시 아이스크림, 쿠키, 케이크 등)을 추천한 후 "피해"라고 말하는 모순된 답변을 절대 하지 마.
    - 알레르기가 있는 음식을 추천했다가 나중에 피하라고 말하는 일이 없도록 주의해줘.
    - 알레르기 정보를 먼저 확인하고, 알레르기가 없는 안전한 간식만 추천해줘.
-   - 예시: "난류, 우유 알레르기가 있으니 아이스크림은 피하고, 과일이나 견과류를 먹는 게 좋을 것 같아."` : ''}
+   - 예시: "난류, 우유 알레르기가 있으니 아이스크림은 피하고, 과일이나 견과류를 먹는 게 좋을 것 같아."
+   - **중요: 위에 제공된 "학생의 알레르기 정보"를 정확히 참고하여 판단해줘. 다른 정보를 사용하지 마.**` : ''}
+${userBMR ? `12. **간식 추천 시 BMR 기반 칼로리 계산 (매우 중요):**
+   - 학생의 기초대사량(BMR): ${Math.round(userBMR)}kcal/일
+   - 간식은 하루 총 칼로리의 10~15%를 넘지 않아야 해.
+   - 학생의 BMR 기준으로 간식 권장 칼로리: ${Math.round(userBMR * 0.1)}~${Math.round(userBMR * 0.15)}kcal
+   - 사용자가 특정 간식을 요청했을 때, 해당 간식의 칼로리를 고려하여 BMR의 10~15%를 넘지 않도록 적절한 양을 추천해줘.
+   - 예시: "사과는 1개(약 80kcal) 정도 먹으면 좋을 것 같아. BMR의 10~15% 범위 내에서 안전하게 먹을 수 있어."
+   - 간식 추천 시에는 점심에 먹은 음식(${menuSummary})을 분석하여 부족한 영양소를 보완할 수 있는 간식을 추천해줘.
+   - 사용자가 먹고 싶은 간식을 말했을 때, 그 간식이 BMR의 10~15%를 넘지 않도록 적절한 양을 구체적으로 알려줘.` : ''}
 ${carbRichFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 ? '12' : '11'}. **탄수화물 과다 섭취 시 운동 처방 (매우 중요):**
    - 위의 "[탄수화물이 많은 음식]"에 나열된 음식들을 많이 섭취한 경우, 반드시 운동 처방을 함께 제공해줘.
    - 탄수화물 과다 섭취에 대한 설명과 함께 구체적인 운동 종류와 시간을 제안해줘.
@@ -1561,6 +1662,8 @@ ${excessiveFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 && ca
 
     const data = await response.json();
     const botMessage = data.choices[0].message.content;
+    
+    // 줄바꿈은 챗봇이 주제 변경 시 자동으로 처리하므로 후처리 제거
     
     nutritionChatHistory.push({
       role: 'assistant',
@@ -1619,6 +1722,7 @@ async function startNutritionChatbot(lunchData) {
   // 대화 히스토리가 없을 때만 초기 메시지 표시
   if (nutritionChatHistory.length === 0) {
   nutritionChatMessages.innerHTML = '';
+    nutritionChatTurn = 0; // 대화 턴 초기화
   
   // 먹은 메뉴 정보 정리
   const eatenMenus = lunchData.menuItems.filter(item => item.count > 0);
@@ -1672,11 +1776,10 @@ async function startNutritionChatbot(lunchData) {
       });
     }
     
-    // 간단한 인사 메시지
-    addNutritionMessage('bot', '안녕! 오늘 점심 잘 먹었어?');
-    
-    // 첫 번째 대화: 음식 양 안내 + 알레르기 확인 (자연스러운 타이밍)
+    // 1턴: 먹은 음식 양 피드백 + 알레르기 확인
   setTimeout(async () => {
+      nutritionChatTurn = 1; // 1턴 시작
+      
       const eatenMenuList = eatenMenus.map(item => `- ${item.name}: ${item.count}인분`).join('\n');
       
       let comparisonInfo = '';
@@ -1688,25 +1791,90 @@ async function startNutritionChatbot(lunchData) {
         comparisonInfo += `기본 양보다 덜 드신 음식:\n${lessEaten.map(menu => `- ${menu.name}: 기본 1인분 → 실제 0인분`).join('\n')}`;
       }
       
-      // 첫 번째 대화 프롬프트: 음식 양 안내 + 알레르기 확인
+      // 첫 번째 대화 프롬프트: 음식 양 안내만 (알레르기는 2턴에서 처리)
       let firstPrompt = `오늘 점심에 먹은 음식들:\n${eatenMenuList}`;
       if (comparisonInfo) {
         firstPrompt += `\n\n${comparisonInfo}`;
       }
-      firstPrompt += `\n\n위 정보를 바탕으로 친구와 대화하듯이 자연스럽게 먹은 것들을 언급하고, 기본 양(1인분) 대비 무엇을 얼마나 더 먹었는지, 덜 먹었는지 친근하게 안내해줘. 너무 딱딱하지 않게, 마치 친구가 물어보는 것처럼 자연스럽게 말해줘.`;
-      
-      if (allergyDangerousMenus.length > 0) {
-        firstPrompt += `\n\n또한 점심에 알레르기가 유발될 수 있는 음식을 먹었어: ${allergyDangerousMenus.map(m => m.name).join(', ')}. 이 부분도 자연스럽게 언급하면서 컨디션이 괜찮은지 친근하게 물어봐줘. 예: "그런데 ${allergyDangerousMenus[0].name} 먹었는데 괜찮아?" 같은 식으로.`;
-      }
-      
-      firstPrompt += `\n\n**중요: 간식 추천에 대한 질문은 절대 하지 마. 이 대화에서는 음식 양 안내와 알레르기 확인만 자연스럽게 해.**`;
+      firstPrompt += `\n\n위 정보를 바탕으로 친구와 대화하듯이 자연스럽게 답변해줘. 반드시 다음 형식을 따라줘:\n\n1. "오늘 점심에는"으로 시작하고, 각 음식을 개행(\\n)으로 구분해서 나열해줘. 예:\n오늘 점심에는\n곤드레나물밥을 2인분\n삼겹살볶음을 3인분\n치즈쌀케익을 2인분 먹었구나.\n\n2. 그 다음에 각 음식이 기본 양(1인분)보다 얼마나 더 먹었는지, 덜 먹었는지 설명해줘. 예: "곤드레나물밥은 1인분을 더 먹었고, 삼겹살볶음은 2인분을 더 먹었네. 치즈쌀케익도 1인분을 더 먹었어."\n\n3. 마지막으로 먹은 양에 대한 전체적인 피드백을 해줘. 예: "조금 많이 먹은 것 같아" 또는 "골고루 잘 먹었네" 같은 식으로.\n\n**중요: 이 대화에서는 음식 목록과 먹은 양에 대한 피드백만 제공해줘. 알레르기 관련 내용은 절대 포함하지 마. 알레르기는 다음 대화에서 별도로 다룰 거야.**`;
       
       const analysis = await callNutritionChatGPTAPI(firstPrompt, lunchData);
     addNutritionMessage('bot', analysis);
       
-      // 간식 추천 질문은 자연스러운 타이밍으로 (2-3초 후)
-      setTimeout(() => {
-        addNutritionMessage('bot', '오늘 간식 추천해줄까?');
+      // 2턴: 알레르기 관련 내용 (1턴 응답 후 자동으로 표시)
+      setTimeout(async () => {
+        nutritionChatTurn = 2; // 2턴으로 설정 (간식 추천 전에 알레르기 확인)
+        
+        // 알레르기 유발 음식 다시 확인 (최신 정보 반영)
+        const eatenMenusForAllergy = lunchData.menuItems.filter(item => item.count > 0);
+        const allergyDangerousMenusForTurn2 = [];
+        
+        if (userAllergies && userAllergies.length > 0 && todayMenu && todayMenu.length > 0) {
+          const allergyNumberMap = {
+            '난류': '1', '우유': '2', '메밀': '3', '땅콩': '4', '대두': '5',
+            '밀': '6', '고등어': '7', '게': '8', '새우': '9', '돼지고기': '10',
+            '복숭아': '11', '토마토': '12', '아황산류': '13', '호두': '14',
+            '닭고기': '15', '쇠고기': '16', '오징어': '17', '조개류': '18', '잣': '19'
+          };
+          
+          const userAllergyNumbers = userAllergies
+            .map(allergy => allergyNumberMap[allergy])
+            .filter(num => num !== undefined);
+          
+          eatenMenusForAllergy.forEach(item => {
+            const menuItem = todayMenu.find(m => m.name === item.name);
+            if (menuItem && menuItem.allergyInfo && menuItem.allergyInfo.trim() !== '') {
+              const menuAllergyNumbers = menuItem.allergyInfo.split('.').map(num => num.trim()).filter(num => num);
+              const hasAllergy = menuAllergyNumbers.some(num => userAllergyNumbers.includes(num));
+              
+              if (hasAllergy) {
+                const matchedAllergies = menuAllergyNumbers
+                  .filter(num => userAllergyNumbers.includes(num))
+                  .map(num => {
+                    const allergyName = Object.keys(allergyNumberMap).find(
+                      key => allergyNumberMap[key] === num
+                    );
+                    return allergyName || num;
+                  });
+                
+                allergyDangerousMenusForTurn2.push({
+                  name: item.name,
+                  allergies: matchedAllergies
+                });
+              }
+            }
+          });
+        }
+        
+        console.log('🔍 [2턴 알레르기 체크] 사용자 알레르기:', userAllergies);
+        console.log('🔍 [2턴 알레르기 체크] 알레르기 유발 음식:', allergyDangerousMenusForTurn2);
+        
+        if (allergyDangerousMenusForTurn2.length > 0) {
+          const allergyPrompt = `점심에 알레르기가 유발될 수 있는 음식을 먹었어: ${allergyDangerousMenusForTurn2.map(m => `${m.name}(${m.allergies.join(', ')})`).join(', ')}. 
+
+**중요: 학생의 알레르기 정보는 "${userAllergies.join(', ')}"입니다. 이 정보를 정확히 참고하여 위의 음식들이 알레르기를 유발할 수 있다고 판단한 것입니다.**
+
+이 정보를 바탕으로 친근하게 컨디션을 물어봐줘. 반말로 친근하게 물어봐줘. 
+
+**응답 형식:**
+1. "점심에 알레르기가 유발될 수 있는 음식을 먹었네. 컨디션 괜찮아?" 같은 형식으로 물어봐줘.
+2. 사용자가 "괜찮아" 또는 긍정적인 답변을 할 것으로 예상되므로, 그에 대한 피드백도 함께 준비해줘. 예: "괜찮다면 위험하지 않아서 다행이야. 앞으로는 해당 음식을 조금 줄이는 게 좋을 것 같아. 계속 몸 상태를 주의 깊게 살펴봐야 해." 같은 형식으로.`;
+          const response = await callNutritionChatGPTAPI(allergyPrompt, lunchData);
+          addNutritionMessage('bot', response);
+          
+          // 알레르기 확인 메시지 후 사용자 응답을 기다림 (추천 질문은 사용자 응답 후 표시)
+        } else {
+          // 알레르기 유발 음식을 먹지 않은 경우 칭찬
+          const praisePrompt = `오늘 점심에는 알레르기를 유발할 수 있는 음식이 없었어. 
+
+**중요: 학생의 알레르기 정보는 "${userAllergies && userAllergies.length > 0 ? userAllergies.join(', ') : '없음'}"입니다. 이 정보를 확인한 결과, 오늘 점심 메뉴에는 해당 알레르기 성분이 포함된 음식이 없습니다.**
+
+이 부분을 자연스럽게 칭찬해줘. 예: "알레르기 있는 음식은 안 먹었네? 잘했어!" 같은 형식으로. 반말로 친근하게 말해줘.`;
+          const response = await callNutritionChatGPTAPI(praisePrompt, lunchData);
+          addNutritionMessage('bot', response);
+          
+          // 칭찬 메시지 후 사용자 응답을 기다림 (추천 질문은 사용자 응답 후 표시)
+        }
       }, 2000);
     }, 800);
   } else {
@@ -1716,6 +1884,21 @@ async function startNutritionChatbot(lunchData) {
       const sender = msg.role === 'user' ? 'user' : 'bot';
       addNutritionMessage(sender, msg.content);
     });
+    // 마지막 메시지의 역할에 따라 턴 추정
+    if (nutritionChatHistory.length > 0) {
+      const lastBotMessage = [...nutritionChatHistory].reverse().find(msg => msg.role === 'assistant');
+      if (lastBotMessage) {
+        const content = lastBotMessage.content.toLowerCase();
+        if (content.includes('알레르기') || content.includes('컨디션')) {
+          nutritionChatTurn = 2;
+        } else if (content.includes('간식') || content.includes('운동') || content.includes('추천해줄까')) {
+          // 추천 질문 이후
+          nutritionChatTurn = 0; // 턴 추적 종료
+        } else {
+          nutritionChatTurn = 1;
+        }
+      }
+    }
   }
 }
 
@@ -1907,8 +2090,8 @@ chatInput.addEventListener('keypress', async (e) => {
   }
 });
 
-endChatBtn.addEventListener('click', () => {
-  endChatbot();
+endChatBtn.addEventListener('click', async () => {
+  await endChatbot();
 });
 
 addSnackBtn.addEventListener('click', () => {
@@ -1925,6 +2108,35 @@ snackInput.addEventListener('keypress', (e) => {
 if (cameraSnackBtn) {
   cameraSnackBtn.addEventListener('click', () => {
     snackImageInput.click();
+  });
+}
+
+// 이미지를 JPG로 변환하는 함수
+async function convertImageToJPG(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('이미지 변환 실패'));
+          }
+        }, 'image/jpeg', 0.9);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
@@ -2090,47 +2302,73 @@ nutritionSendBtn.addEventListener('click', async () => {
     }))
   };
   
-  // 간식 추천 요청인지 확인
-  const lowerMessage = message.toLowerCase();
-  const isSnackRecommendationRequest = lowerMessage.includes('네') || lowerMessage.includes('좋아') || lowerMessage.includes('추천') || lowerMessage.includes('해줘') || lowerMessage.includes('해주세요') || lowerMessage.includes('간식');
-  
-  // 간식 추천 요청인 경우 알레르기 정보를 명확히 포함한 프롬프트 사용
-  let finalMessage = message;
-  if (isSnackRecommendationRequest && userAllergies && userAllergies.length > 0) {
-    finalMessage = `${message}\n\n[중요: 간식 추천 시 알레르기 정보 반영 필수]
-학생의 알레르기 정보: ${userAllergies.join(', ')}
-- ${userAllergies.join(', ')} 알레르기가 있으므로, 해당 알레르기 유발 성분이 포함된 간식은 절대 추천하지 마세요.
-- 알레르기 유발 성분이 포함된 간식을 추천한 후 "피하세요"라고 말하는 모순된 답변을 절대 하지 마세요.
-- 알레르기 정보를 먼저 확인하고, 알레르기가 없는 안전한 간식만 추천하세요.
-- 예시: "난류, 우유 알레르기가 있으시니 아이스크림, 쿠키, 케이크 등은 피하시고, 과일이나 견과류를 드시는 게 좋을 것 같아요."`;
-  }
-  
-  const botResponse = await callNutritionChatGPTAPI(finalMessage, lunchData);
-  addNutritionMessage('bot', botResponse);
-  
-  // 간식 추천 질문에 긍정적으로 답한 경우, 간식 추천 후 자동으로 운동 추천 메시지 추가
-  const lowerResponse = botResponse.toLowerCase();
-  
-  // 간식 추천 관련 대화가 끝났는지 확인
-  const isSnackRecommendationResponse = lowerResponse.includes('간식') || lowerResponse.includes('추천') || lowerResponse.includes('드릴게요') || lowerResponse.includes('드리겠습니다');
-  
-  if (isSnackRecommendationRequest && isSnackRecommendationResponse) {
-    // 간식 추천 대화가 끝나면 운동 추천 메시지 추가
-    setTimeout(async () => {
-      // 이전 메시지가 운동 추천이 아닌 경우에만 추가
-      const lastMessages = Array.from(nutritionChatMessages.children).slice(-5);
-      const hasExerciseRecommendation = lastMessages.some(msg => {
-        const content = msg.textContent || '';
-        return content.includes('운동') && (content.includes('추천') || content.includes('안내'));
-      });
+  // 대화 턴에 따라 처리
+  if (nutritionChatTurn === 1) {
+    // 1턴 응답 (음식 양 피드백) - 이미 2턴(알레르기)으로 자동 전환됨
+    const botResponse = await callNutritionChatGPTAPI(message, lunchData);
+    addNutritionMessage('bot', botResponse);
+  } else if (nutritionChatTurn === 2) {
+    // 2턴 응답 (알레르기 확인) - 사용자 응답 후 추천 질문 표시
+    const botResponse = await callNutritionChatGPTAPI(message, lunchData);
+    addNutritionMessage('bot', botResponse);
+    
+    // 사용자 응답 후 추천 질문 표시
+    setTimeout(() => {
+      addNutritionMessage('bot', '간식? 운동? 또 어떤것 추천해줄까?');
+      nutritionChatTurn = 0; // 턴 추적 종료
+    }, 1000);
+  } else {
+    // 추천 질문 이후 응답 처리 (간식, 운동, 기타 추천)
+    const lowerMessage = message.toLowerCase();
+    
+    // 간식 관련 요청인지 확인
+    const isSnackRelated = lowerMessage.includes('간식') || lowerMessage.includes('먹고 싶') || lowerMessage.includes('먹을래');
+    
+    // 운동 관련 요청인지 확인
+    const isExerciseRelated = lowerMessage.includes('운동') || lowerMessage.includes('활동');
+    
+    let finalPrompt = message;
+    
+    if (isSnackRelated) {
+      // 간식 추천 요청
+      const eatenMenuSummary = lunchData.menuItems
+        .filter(item => item.count > 0)
+        .map(item => `${item.name} ${item.count}인분`)
+        .join(', ');
       
-      if (!hasExerciseRecommendation) {
-        addNutritionMessage('bot', '오늘의 운동을 추천드리겠습니다.');
-        const exercisePrompt = '점심에 먹은 음식의 양과 영양소를 고려하여 적절한 운동을 안내해주세요. 구체적인 운동 종류와 시간을 제안해주세요.';
-        const exerciseResponse = await callNutritionChatGPTAPI(exercisePrompt, lunchData);
-        addNutritionMessage('bot', exerciseResponse);
+      finalPrompt = `${message}\n\n[간식 추천 요청]
+점심에 먹은 음식: ${eatenMenuSummary}
+위 점심 메뉴를 분석하여 부족한 영양소를 보완할 수 있는 간식을 추천해줘.`;
+      
+      if (userBMR) {
+        const snackCalorieMin = Math.round(userBMR * 0.1);
+        const snackCalorieMax = Math.round(userBMR * 0.15);
+        finalPrompt += `\n\n학생의 기초대사량(BMR): ${Math.round(userBMR)}kcal/일
+간식 권장 칼로리 범위: ${snackCalorieMin}~${snackCalorieMax}kcal (BMR의 10~15%)
+이 범위 내에서 간식을 추천해줘.`;
       }
-    }, 2000);
+      
+      if (userAllergies && userAllergies.length > 0) {
+        finalPrompt += `\n\n알레르기 정보: ${userAllergies.join(', ')}
+${userAllergies.join(', ')} 알레르기가 있으므로, 해당 알레르기 유발 성분이 포함된 간식은 절대 추천하지 마세요.`;
+      }
+      
+      // 특정 간식 요청인 경우 BMR 기반 양 추천
+      const isSpecificSnackRequest = lowerMessage.match(/[가-힣]+(을|를|이|가)/) && !lowerMessage.includes('추천');
+      if (isSpecificSnackRequest && userBMR) {
+        const snackCalorieMin = Math.round(userBMR * 0.1);
+        const snackCalorieMax = Math.round(userBMR * 0.15);
+        finalPrompt += `\n\n사용자가 특정 간식을 요청했어. 이 간식의 칼로리를 고려하여 적절한 양을 추천해줘.
+간식 권장 칼로리 범위: ${snackCalorieMin}~${snackCalorieMax}kcal (BMR의 10~15%)
+이 범위를 넘지 않도록 적절한 양을 구체적으로 알려줘. 예: "사과는 1개(약 80kcal) 정도 먹으면 좋을 것 같아." 또는 "초콜릿은 1~2조각(약 50~100kcal) 정도가 적당해."`;
+      }
+    } else if (isExerciseRelated) {
+      // 운동 추천 요청
+      finalPrompt = `${message}\n\n점심에 먹은 음식의 양과 영양소를 고려하여 적절한 운동을 안내해줘. 구체적인 운동 종류와 시간을 제안해줘. 반말로 친근하게 말해줘.`;
+    }
+    
+    const botResponse = await callNutritionChatGPTAPI(finalPrompt, lunchData);
+    addNutritionMessage('bot', botResponse);
   }
 });
 
@@ -2182,11 +2420,17 @@ async function saveLunchToFirebase(lunchData) {
   }
   
   const date = getTodayDate();
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const time = `${hours}:${minutes}`;
+  
   const recordData = {
     userId: currentUser.uid,
     userEmail: currentUser.email,
     userName: currentUser.displayName || '익명',
     date: date,
+    time: time,
     type: 'lunch',
     records: lunchData.records,
     totalCalories: lunchData.totalCalories,
@@ -2219,6 +2463,38 @@ async function saveLunchToFirebase(lunchData) {
   }
 }
 
+// 간식 사진을 Storage에 저장하는 함수
+async function saveSnackImageToStorage(file) {
+  if (!storage || !currentUser) {
+    throw new Error('Storage 또는 사용자 정보가 없습니다.');
+  }
+  
+  try {
+    // 이미지를 JPG로 변환
+    const jpgBlob = await convertImageToJPG(file);
+    
+    // 파일명 생성: 사용자ID_날짜_타임스탬프.jpg
+    const date = getTodayDate();
+    const timestamp = Date.now();
+    const fileName = `snack_${currentUser.uid}_${date}_${timestamp}.jpg`;
+    
+    // Storage 경로: snackImages/{userId}/{fileName}
+    const storageRef = ref(storage, `snackImages/${currentUser.uid}/${fileName}`);
+    
+    // 업로드
+    await uploadBytes(storageRef, jpgBlob);
+    
+    // 다운로드 URL 가져오기
+    const downloadURL = await getDownloadURL(storageRef);
+    
+    console.log('✅ 간식 사진이 Storage에 저장되었습니다:', downloadURL);
+    return downloadURL;
+  } catch (error) {
+    console.error('❌ 간식 사진 저장 오류:', error);
+    throw error;
+  }
+}
+
 // Firebase에 간식 기록 저장 (기존 기록이 있으면 업데이트, 없으면 새로 생성)
 async function saveSnackToFirebase(snackData) {
   if (!db) {
@@ -2230,14 +2506,34 @@ async function saveSnackToFirebase(snackData) {
   }
   
   const date = getTodayDate();
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const time = `${hours}:${minutes}`;
+  
+  // 간식 사진이 있으면 Storage에 저장
+  let imageURLs = [];
+  if (snackImageInput && snackImageInput.files.length > 0) {
+    try {
+      const file = snackImageInput.files[0];
+      const imageURL = await saveSnackImageToStorage(file);
+      imageURLs.push(imageURL);
+    } catch (error) {
+      console.error('간식 사진 저장 실패:', error);
+      // 사진 저장 실패해도 기록은 저장
+    }
+  }
+  
   const recordData = {
     userId: currentUser.uid,
     userEmail: currentUser.email,
     userName: currentUser.displayName || '익명',
     date: date,
+    time: time,
     type: 'snack',
     snacks: snackData.snacks,
     count: snackData.count,
+    imageURLs: imageURLs, // 저장된 이미지 URL 배열
     updatedAt: serverTimestamp()
   };
   
@@ -2266,12 +2562,22 @@ async function saveSnackToFirebase(snackData) {
   }
 }
 
+// 사용자 정보 표시 업데이트
+function updateUserInfoDisplay() {
+  if (currentUser && userNameDisplay && userEmailDisplay) {
+    userNameDisplay.textContent = currentUser.displayName || '익명';
+    userEmailDisplay.textContent = currentUser.email || '';
+  }
+}
+
 // 사용자 인증 상태 확인
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
       console.log('✅ 사용자 로그인:', user.email);
+      // 사용자 정보 표시 업데이트
+      updateUserInfoDisplay();
       // BMR 정보 불러오기
       await loadUserBMR();
     } else {
@@ -2279,6 +2585,10 @@ if (auth) {
       userBMR = null;
       userBMI = null;
       console.warn('⚠️ 사용자가 로그인하지 않았습니다.');
+      
+      // 사용자 정보 표시 초기화
+      if (userNameDisplay) userNameDisplay.textContent = '';
+      if (userEmailDisplay) userEmailDisplay.textContent = '';
       
       // 학생 페이지에서 로그인하지 않은 경우 메인 페이지로 리다이렉트
       if (window.location.pathname.includes('student.html')) {

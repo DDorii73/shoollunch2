@@ -208,25 +208,25 @@
       </div>
     </div>
 
-    <!-- 월별 음식 기록 섹션 -->
+    <!-- 음식별 섭취량 그래프 섹션 -->
     <div class="record-section">
       <div class="record-container">
-        <h2>월별 음식 기록</h2>
-        <p class="meal-description">월을 선택하여 해당 월에 먹었던 음식들을 확인하세요.</p>
+        <h2>음식별 섭취량 그래프</h2>
+        <p class="meal-description">날짜를 선택하여 해당 날짜의 음식별 섭취량을 확인하세요.</p>
         
         <div class="meal-record">
-          <div class="month-selector">
+          <div class="date-range-selector">
             <div class="input-group">
-              <label for="month-select">월 선택</label>
-              <select id="month-select" class="month-select">
-                <option value="">월을 선택하세요</option>
-              </select>
+              <label for="food-chart-date">날짜 선택</label>
+              <input type="date" id="food-chart-date" />
             </div>
-            <button id="load-food-records-btn" class="submit-btn">기록 불러오기</button>
+            <button id="load-food-chart-btn" class="submit-btn">그래프 불러오기</button>
           </div>
           
-          <div id="food-records-container" class="food-records-container">
-            <p class="no-records-message">월을 선택하고 기록 불러오기를 클릭하세요.</p>
+          <div class="consumption-chart-container" style="margin: 20px 0;">
+            <h4 style="margin-bottom: 10px; color: var(--text-color);">📊 음식별 섭취량</h4>
+            <p id="food-chart-message" style="color: var(--text-light); margin-bottom: 10px;">날짜를 선택하고 그래프 불러오기를 클릭하세요.</p>
+            <canvas id="food-consumption-chart"></canvas>
           </div>
         </div>
       </div>
@@ -253,6 +253,30 @@
           
           <div class="chart-container">
             <canvas id="weight-bmi-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 월별 음식 기록 섹션 -->
+    <div class="record-section">
+      <div class="record-container">
+        <h2>월별 음식 기록</h2>
+        <p class="meal-description">월을 선택하여 해당 월에 먹었던 음식들을 확인하세요.</p>
+        
+        <div class="meal-record">
+          <div class="month-selector">
+            <div class="input-group">
+              <label for="month-select">월 선택</label>
+              <select id="month-select" class="month-select">
+                <option value="">월을 선택하세요</option>
+              </select>
+            </div>
+            <button id="load-food-records-btn" class="submit-btn">기록 불러오기</button>
+          </div>
+          
+          <div id="food-records-container" class="food-records-container">
+            <p class="no-records-message">월을 선택하고 기록 불러오기를 클릭하세요.</p>
           </div>
         </div>
       </div>

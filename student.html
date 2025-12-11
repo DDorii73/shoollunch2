@@ -10,7 +10,13 @@
 <body>
   <div class="student-container">
     <header class="student-header">
-      <h1>🍽️ 오늘의 급식</h1>
+      <div style="flex: 1;">
+        <h1>🍽️ 오늘의 급식</h1>
+        <div id="user-info-header" style="margin-top: 8px; font-size: 14px; color: var(--text-light);">
+          <span id="user-name-display"></span>
+          <span id="user-email-display" style="margin-left: 10px;"></span>
+        </div>
+      </div>
       <button id="back-btn" class="back-btn">← 돌아가기</button>
     </header>
 
@@ -19,7 +25,7 @@
       <div class="chatbot-container">
         <div class="chatbot-header">
           <h2>급식 챗봇과 대화하기</h2>
-          <p class="chatbot-subtitle">오늘의 급식에 대해 이야기해보세요! (3~7회 대화)</p>
+          <p class="chatbot-subtitle">오늘의 급식에 대해 이야기해보세요!</p>
         </div>
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">

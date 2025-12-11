@@ -31,7 +31,13 @@ export default defineConfig({
   base: '/',
   // 최적화 설정
   optimizeDeps: {
-    include: ['firebase']
+    include: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
+  },
+  // Firebase 호환성 설정
+  resolve: {
+    alias: {
+      // Firebase 모듈 해결을 위한 별칭 (필요시)
+    }
   }
 });
 
