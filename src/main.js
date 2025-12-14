@@ -401,13 +401,8 @@ async function callChatGPTAPI(userMessage) {
     content: userMessage
   });
 
-  // 알레르기 위험 메뉴 확인
+  // 알레르기 위험 메뉴 확인 (컨디션 질문 후에만 별도로 안내하므로 여기서는 시스템 프롬프트에 포함하지 않음)
   const dangerousMenus = userAllergies && userAllergies.length > 0 ? checkAllergyInMenu() : [];
-  const allergyWarningText = userAllergies && userAllergies.length > 0
-    ? (dangerousMenus.length > 0 
-      ? `\n\n학생의 알레르기로 인해 피해야 할 메뉴:\n${dangerousMenus.map((menu, index) => `${index + 1}. ${menu.name}(${menu.allergies.join(', ')})`).join('\n')}`
-      : `\n\n학생의 알레르기로 인해 피해야 할 메뉴: 없음 (오늘 급식에는 학생의 알레르기 성분이 포함된 메뉴가 없습니다)`)
-    : '';
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -453,50 +448,14 @@ ${todayMenu.map((m, i) => {
 총 칼로리: ${totalCalories > 0 ? totalCalories.toFixed(1) : 0}kcal
 
 
-${userAllergies.length > 0 ? `[기록 관리 탭에 입력한 학생 정보]
+${userAllergies.length > 0 ? `[기록 관리 탭에 입력한 학생 정보 - 참고용]
 학생 이름: ${currentUser?.displayName || '학생'}
-학생의 알레르기 정보 (기존에 입력한 정보 - 반드시 참고해야 함):
-${userAllergies.map((allergy, index) => `${index + 1}. ${allergy}`).join('\n')}
-${allergyWarningText}
+학생의 알레르기 정보: ${userAllergies.join(', ')}
 
-**매우 중요: 알레르기 정보 일관성 유지**
-이 웹앱의 기록 관리 탭에 입력된 알레르기 정보를 반드시 확인하고, 한 대화 안에서 절대로 번복하지 마세요.
-
-1. **알레르기 정보 확인 방법:**
-   - 위의 "학생의 알레르기 정보" 목록을 확인하세요. 이는 기록 관리 탭에 입력된 실제 정보입니다.
-   - 위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록을 확인하세요.
-   - 이전 대화 히스토리에서 이미 언급한 알레르기 정보를 확인하세요.
-
-2. **알레르기 정보 제공 규칙:**
-   건강 상태에 대한 질문에 학생이 답변하면:
-   - 먼저 컨디션에 대한 피드백을 해주세요.
-   - 그 다음에 반드시 위의 "기록 관리 탭에 입력한 학생 정보"와 이전 대화 히스토리를 참고하여 알레르기 정보를 알려주세요.
-   
-   - **위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록에 메뉴가 있는 경우:**
-     학생의 이름과 알레르기 정보를 언급한 후 "아래와 같은 음식을 조심해"라고 말하고, 위의 피해야 할 메뉴 목록을 반드시 번호가 매겨진 개조식으로 표시하세요.
-     예: "${currentUser?.displayName || '학생'}은 ${userAllergies.join(', ')} 알레르기가 있네. 아래와 같은 음식을 조심해.\n1. 어묵매운탕(밀, 새우)\n2. 닭볶음탕(난류)\n3. 요구르트(우유)"
-     **중요: 반드시 "1.", "2.", "3." 같은 번호를 매겨서 개조식으로 표시해야 합니다.**
-   
-   - **위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록이 "없음"으로 표시된 경우:**
-     "${currentUser?.displayName || '학생'}님 오늘은 알레르기를 유발하는 음식이 없네요, 맛있게 먹을 수 있겠어요."라고 피드백하세요.
-
-3. **절대 금지 사항:**
-   - 절대로 학생의 알레르기 정보가 있다고 했다가 없다고 하지 마세요.
-   - 절대로 한 대화 안에서 알레르기가 있다고 했다가 없다고 하지 마세요.
-   - 절대로 이전 대화에서 알레르기 메뉴를 언급했다면 (예: "어묵매운탕을 조심하세요"), 나중에 "알레르기를 유발하는 음식이 없다"고 말하지 마세요.
-   - **한 번 알레르기가 있다고 안내한 음식 (has_allergy=true)은 같은 대화 안에서 계속 "주의해야 하는 음식"으로 일관되게 설명하세요.**
-   - **알레르기 정보와 모순되는 답변을 절대 하지 마세요.**
-   - 위의 "기록 관리 탭에 입력한 학생 정보"와 이전 대화 히스토리를 일관되게 참고하여 판단하세요.
-
-4. **대화 히스토리 확인:**
-   - 특히 중요: 이전 대화 히스토리를 반드시 확인하세요.
-   - 만약 이전 대화에서 이미 알레르기 메뉴를 언급했다면, 그 정보를 계속 유지하세요.
-   - 대화 히스토리와 위의 "기록 관리 탭에 입력한 학생 정보"를 일관되게 유지하세요.
-
-5. **알레르기 질문:**
-   - 알레르기가 있냐고 묻지 말고, 컨디션 답변 후 자동으로 알레르기 정보를 포함하세요.
-
-**요약: 기록 관리 탭에 입력된 알레르기 정보를 확인하고, 한 대화 안에서 절대로 번복하지 마세요. 이전 대화에서 언급한 알레르기 정보는 계속 유지하세요.` : ''}
+**중요: 알레르기 정보 제공 규칙**
+- 알레르기 정보는 컨디션 질문에 대한 학생의 답변 후 자동으로 별도로 안내됩니다.
+- 컨디션 질문에 대한 학생의 답변에 대해서는 컨디션 피드백만 제공하고, 알레르기 정보는 언급하지 마세요.
+- 알레르기 정보는 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.` : ''}
 
 ${nutritionInfo ? `상세 영양 정보:
 ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('\n')}` : ''}
@@ -534,15 +493,11 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 6. 학생의 질문에 대해 긍정적이고 격려하는 톤으로 답변하세요.
 7. 절대로 메뉴를 지어내거나 추가하지 마세요. 위에 제공된 메뉴 정보만 사용하세요.
 8. **급식 챗봇의 주요 역할:**
-   - 알레르기 있는 음식 알려주기: 컨디션 질문 후 자동으로 알레르기 정보 제공
    - 컨디션 묻기: 건강 상태에 대한 질문
    - 음식 영양정보 안내하기: 상세 영양 정보를 활용한 설명
-9. 건강 상태에 대한 질문에 학생이 답변하면, 먼저 컨디션에 대한 피드백을 해주고, 그 다음에 위에 제공된 "학생의 알레르기 정보"와 "학생의 알레르기로 인해 피해야 할 메뉴" 목록을 반드시 참고하여 알레르기 정보를 알려주세요. 
-   - 위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록에 메뉴가 있는 경우: 학생의 이름과 알레르기 정보를 언급한 후 "아래와 같은 음식을 조심해"라고 말하고, 피해야 할 메뉴 목록을 반드시 번호가 매겨진 개조식으로 표시하세요. 메뉴명 뒤에 괄호로 알레르기 정보를 표시하세요. 예: "00은 000알레르기가 있네. 아래와 같은 음식을 조심해.\n1. 어묵매운탕(밀, 새우)\n2. 닭볶음탕(난류)\n3. 요구르트(우유)" 형식으로 반드시 번호를 매겨서 표시하세요. **중요: 번호 없이 표시하면 안 됩니다. 반드시 "1.", "2.", "3." 같은 번호를 매겨야 합니다.**
-   - 위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록이 "없음"으로 표시된 경우: "00 오늘은 알레르기를 유발하는 음식이 없네, 맛있게 먹을 수 있겠어!"라고 피드백하세요.
-10. 절대로 학생의 알레르기 정보가 있다고 했다가 없다고 하지 마세요. 위에 제공된 "학생의 알레르기 정보"와 "학생의 알레르기로 인해 피해야 할 메뉴" 목록을 일관되게 참고하여 판단하세요.
-11. 특히 중요: 이전 대화 히스토리와 기록 관리 탭에 입력한 학생 정보를 모두 반영하여 답변하세요. 만약 이전 대화에서 이미 알레르기 메뉴를 언급했다면 (예: "어묵매운탕을 조심하세요"), 나중에 "알레르기를 유발하는 음식이 없다"고 말하지 마세요. 대화 히스토리와 기록 관리 탭에 입력한 정보를 일관되게 유지하세요. 이전에 언급한 알레르기 정보는 계속 유지해야 합니다.
-12. 알레르기가 있냐고 묻지 말고, 컨디션 답변 후 자동으로 알레르기 정보를 포함하세요.
+   - 알레르기 정보는 컨디션 질문 후 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
+9. 건강 상태에 대한 질문에 학생이 답변하면, 컨디션에 대한 피드백만 제공하세요. 알레르기 정보는 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
+10. 알레르기 정보는 컨디션 질문 후 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
 13. **기초대사량(BMR), BMI, 목표 몸무게, 식사 비율 등은 언급하지 마세요. 기록 관리 탭에서만 다루는 내용입니다.**
 14. "오늘의 급식 칼로리가 맞는지 확인해볼까?" 같은 칼로리 확인 질문은 하지 마세요. 대신 "00에게 적합한 메뉴를 알아볼까?" 또는 "00에게 추천하는 메뉴를 알려줄까?" 같은 방식으로 학생에게 적합한 메뉴를 제안하는 방향으로 대화를 이끌어주세요.`
           },
@@ -782,9 +737,74 @@ async function handleChatbotResponse(userMessage) {
   // 사용자 메시지 표시
   addChatMessage('user', userMessage);
   
+  // 컨디션 관련 답변인지 확인 (1턴 또는 2턴에서 컨디션 질문에 대한 답변)
+  const isHealthResponse = chatTurn === 1 || chatTurn === 2;
+  const lowerMessage = userMessage.toLowerCase();
+  const isHealthRelated = lowerMessage.includes('좋') || lowerMessage.includes('괜찮') || 
+                          lowerMessage.includes('안좋') || lowerMessage.includes('나쁘') ||
+                          lowerMessage.includes('피곤') || lowerMessage.includes('아픈') ||
+                          lowerMessage.includes('컨디션') || lowerMessage.includes('건강');
+  
   // ChatGPT API 호출 (시스템 프롬프트에 이미 알레르기 정보와 위험 메뉴 목록이 포함되어 있음)
   const botResponse = await callChatGPTAPI(userMessage);
   addChatMessage('bot', botResponse);
+  
+  // 대화 히스토리 저장 (봇 응답 후)
+  if (currentUser && chatHistory.length > 0) {
+    try {
+      await saveMealChatHistory();
+      console.log('✅ 급식 챗봇 대화 저장 완료');
+    } catch (error) {
+      console.error('❌ 급식 챗봇 대화 저장 오류:', error);
+    }
+  }
+  
+  // 컨디션 질문에 대한 답변 후 알레르기 정보 자동 안내
+  if (isHealthResponse && isHealthRelated && userAllergies && userAllergies.length > 0) {
+    setTimeout(async () => {
+      const dangerousMenus = checkAllergyInMenu();
+      
+      if (dangerousMenus.length > 0) {
+        // 알레르기 위험 메뉴가 있는 경우
+        const allergyMessage = `참! ${currentUser?.displayName || '너'}는 ${userAllergies.join(', ')} 알레르기가 있네. 아래와 같은 음식을 조심해야 해:\n\n${dangerousMenus.map((menu, index) => `${index + 1}. ${menu.name} (${menu.allergies.join(', ')})`).join('\n')}`;
+        addChatMessage('bot', allergyMessage);
+        
+        // 대화 히스토리에 추가
+        chatHistory.push({
+          role: 'assistant',
+          content: allergyMessage
+        });
+        
+        // 저장
+        if (currentUser && chatHistory.length > 0) {
+          try {
+            await saveMealChatHistory();
+          } catch (error) {
+            console.error('❌ 알레르기 정보 저장 오류:', error);
+          }
+        }
+      } else {
+        // 알레르기 위험 메뉴가 없는 경우
+        const safeMessage = `${currentUser?.displayName || '너'}는 ${userAllergies.join(', ')} 알레르기가 있지만, 오늘 급식에는 해당 알레르기 성분이 포함된 메뉴가 없어서 안전하게 먹을 수 있어!`;
+        addChatMessage('bot', safeMessage);
+        
+        // 대화 히스토리에 추가
+        chatHistory.push({
+          role: 'assistant',
+          content: safeMessage
+        });
+        
+        // 저장
+        if (currentUser && chatHistory.length > 0) {
+          try {
+            await saveMealChatHistory();
+          } catch (error) {
+            console.error('❌ 알레르기 정보 저장 오류:', error);
+          }
+        }
+      }
+    }, 1500);
+  }
   
   // 3턴 이상이면 대화 끝내기 버튼 표시
   if (chatTurn >= 3) {
@@ -801,7 +821,17 @@ async function handleChatbotResponse(userMessage) {
 }
 
 // 대화 끝내기
-function endChatbot() {
+async function endChatbot() {
+  // 급식 챗봇 대화 저장
+  if (chatHistory.length > 0 && currentUser) {
+    try {
+      await saveMealChatHistory();
+      console.log('✅ 급식 챗봇 대화가 저장되었습니다.');
+    } catch (error) {
+      console.error('❌ 급식 챗봇 대화 저장 오류:', error);
+    }
+  }
+  
   chatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
   initializeRecordSection();
@@ -1644,6 +1674,16 @@ async function startNutritionChatbot(lunchData) {
       }
     addNutritionMessage('bot', analysis);
     
+    // 초기 영양 분석 후 대화 저장
+    if (currentUser && nutritionChatHistory.length > 0) {
+      try {
+        await saveNutritionChatHistory();
+        console.log('✅ 영양 브리핑 챗봇 대화 저장 완료 (초기 분석 포함)');
+      } catch (error) {
+        console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
+      }
+    }
+    
     // 간식 추천 질문이 포함되어 있는지 확인하고, 없으면 추가
     if (!analysis.includes('간식을 추천') && !analysis.includes('간식 추천')) {
       setTimeout(() => {
@@ -2068,6 +2108,16 @@ nutritionSendBtn.addEventListener('click', async () => {
   const botResponse = await callNutritionChatGPTAPI(finalMessage, lunchData);
   addNutritionMessage('bot', botResponse);
   
+  // 영양 브리핑 챗봇 대화 히스토리 저장 (봇 응답 후)
+  if (currentUser && nutritionChatHistory.length > 0) {
+    try {
+      await saveNutritionChatHistory();
+      console.log('✅ 영양 브리핑 챗봇 대화 저장 완료');
+    } catch (error) {
+      console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
+    }
+  }
+  
   // 간식 추천 질문에 긍정적으로 답한 경우, 간식 추천 후 자동으로 운동 추천 메시지 추가
   const lowerResponse = botResponse.toLowerCase();
   
@@ -2089,6 +2139,16 @@ nutritionSendBtn.addEventListener('click', async () => {
         const exercisePrompt = '점심에 먹은 음식의 양과 영양소를 고려하여 적절한 운동을 안내해주세요. 구체적인 운동 종류와 시간을 제안해주세요.';
         const exerciseResponse = await callNutritionChatGPTAPI(exercisePrompt, lunchData);
         addNutritionMessage('bot', exerciseResponse);
+        
+        // 운동 추천 응답 후에도 대화 저장
+        if (currentUser && nutritionChatHistory.length > 0) {
+          try {
+            await saveNutritionChatHistory();
+            console.log('✅ 영양 브리핑 챗봇 대화 저장 완료 (운동 추천 포함)');
+          } catch (error) {
+            console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
+          }
+        }
       }
     }, 2000);
   }
@@ -2103,6 +2163,16 @@ nutritionChatInput.addEventListener('keypress', async (e) => {
 
 // 영양 브리핑 챗봇 닫기
 closeNutritionBtn.addEventListener('click', async () => {
+  // 영양 브리핑 챗봇 대화 저장
+  if (nutritionChatHistory.length > 0 && currentUser) {
+    try {
+      await saveNutritionChatHistory();
+      console.log('✅ 영양 브리핑 챗봇 대화가 저장되었습니다.');
+    } catch (error) {
+      console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
+    }
+  }
+  
   nutritionChatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
   // 기록 섹션 초기화 (메뉴가 없을 경우를 대비)
@@ -2227,6 +2297,129 @@ async function saveSnackToFirebase(snackData) {
     return docRef.id;
   }
 }
+
+// Firebase에 급식 챗봇 대화 저장
+async function saveMealChatHistory() {
+  if (!db) {
+    throw new Error('Firebase가 초기화되지 않았습니다.');
+  }
+  
+  if (!currentUser) {
+    throw new Error('로그인이 필요합니다.');
+  }
+  
+  if (!chatHistory || chatHistory.length === 0) {
+    return; // 저장할 대화가 없으면 반환
+  }
+  
+  const date = getTodayDate();
+  const chatData = {
+    userId: currentUser.uid,
+    userEmail: currentUser.email,
+    userName: currentUser.displayName || '익명',
+    date: date,
+    type: 'mealChat',
+    messages: chatHistory,
+    updatedAt: serverTimestamp()
+  };
+  
+  // 기존 기록 확인
+  const chatHistoryRef = collection(db, 'chatHistory');
+  const q = query(
+    chatHistoryRef,
+    where('userId', '==', currentUser.uid),
+    where('date', '==', date),
+    where('type', '==', 'mealChat')
+  );
+  const querySnapshot = await getDocs(q);
+  
+  if (!querySnapshot.empty) {
+    // 기존 기록 업데이트
+    const existingDoc = querySnapshot.docs[0];
+    await updateDoc(doc(db, 'chatHistory', existingDoc.id), chatData);
+    console.log('급식 챗봇 대화 업데이트 완료:', existingDoc.id);
+    return existingDoc.id;
+  } else {
+    // 새 기록 생성
+    chatData.createdAt = serverTimestamp();
+    const docRef = await addDoc(collection(db, 'chatHistory'), chatData);
+    console.log('급식 챗봇 대화 저장 완료:', docRef.id);
+    return docRef.id;
+  }
+}
+
+// Firebase에 영양 브리핑 챗봇 대화 저장
+async function saveNutritionChatHistory() {
+  if (!db) {
+    throw new Error('Firebase가 초기화되지 않았습니다.');
+  }
+  
+  if (!currentUser) {
+    throw new Error('로그인이 필요합니다.');
+  }
+  
+  if (!nutritionChatHistory || nutritionChatHistory.length === 0) {
+    return; // 저장할 대화가 없으면 반환
+  }
+  
+  const date = getTodayDate();
+  const chatData = {
+    userId: currentUser.uid,
+    userEmail: currentUser.email,
+    userName: currentUser.displayName || '익명',
+    date: date,
+    type: 'nutritionChat',
+    messages: nutritionChatHistory,
+    updatedAt: serverTimestamp()
+  };
+  
+  // 기존 기록 확인
+  const chatHistoryRef = collection(db, 'chatHistory');
+  const q = query(
+    chatHistoryRef,
+    where('userId', '==', currentUser.uid),
+    where('date', '==', date),
+    where('type', '==', 'nutritionChat')
+  );
+  const querySnapshot = await getDocs(q);
+  
+  if (!querySnapshot.empty) {
+    // 기존 기록 업데이트
+    const existingDoc = querySnapshot.docs[0];
+    await updateDoc(doc(db, 'chatHistory', existingDoc.id), chatData);
+    console.log('영양 브리핑 챗봇 대화 업데이트 완료:', existingDoc.id);
+    return existingDoc.id;
+  } else {
+    // 새 기록 생성
+    chatData.createdAt = serverTimestamp();
+    const docRef = await addDoc(collection(db, 'chatHistory'), chatData);
+    console.log('영양 브리핑 챗봇 대화 저장 완료:', docRef.id);
+    return docRef.id;
+  }
+}
+
+// 페이지를 떠날 때 대화 자동 저장
+window.addEventListener('beforeunload', async () => {
+  if (currentUser) {
+    // 급식 챗봇 대화 저장
+    if (chatHistory && chatHistory.length > 0) {
+      try {
+        await saveMealChatHistory();
+      } catch (error) {
+        console.error('페이지 종료 시 급식 챗봇 대화 저장 오류:', error);
+      }
+    }
+    
+    // 영양 브리핑 챗봇 대화 저장
+    if (nutritionChatHistory && nutritionChatHistory.length > 0) {
+      try {
+        await saveNutritionChatHistory();
+      } catch (error) {
+        console.error('페이지 종료 시 영양 브리핑 챗봇 대화 저장 오류:', error);
+      }
+    }
+  }
+});
 
 // 사용자 인증 상태 확인
 if (auth) {

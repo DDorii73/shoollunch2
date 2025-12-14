@@ -1364,14 +1364,14 @@ body {
 }
 
 .nav-btn.record {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+  background: linear-gradient(135deg, #9C88FF, #B19CD9);
+  box-shadow: 0 4px 15px rgba(156, 136, 255, 0.3);
 }
 
 .nav-btn.record:hover {
-  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+  background: linear-gradient(135deg, #B19CD9, #9C88FF);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
+  box-shadow: 0 6px 20px rgba(156, 136, 255, 0.4);
 }
 
 .nav-btn.teacher:hover {
@@ -1555,26 +1555,26 @@ body {
   background: rgba(74, 144, 226, 0.08);
 }
 
-/* 내정보 탭 색상 - 초록색 */
+/* 내정보 탭 색상 - 보라색 */
 .bottom-nav-item:nth-child(2).active {
-  color: #52C9A2;
-  background: linear-gradient(to top, rgba(82, 201, 162, 0.15), transparent);
+  color: #9C88FF;
+  background: linear-gradient(to top, rgba(156, 136, 255, 0.15), transparent);
 }
 
 .bottom-nav-item:nth-child(2):hover {
-  color: #52C9A2;
-  background: rgba(82, 201, 162, 0.08);
+  color: #9C88FF;
+  background: rgba(156, 136, 255, 0.08);
 }
 
 /* 급식 탭 색상 - 오렌지 */
 .bottom-nav-item:nth-child(3).active {
-  color: #FF8C69;
-  background: linear-gradient(to top, rgba(255, 140, 105, 0.15), transparent);
+  color: #FF6B35;
+  background: linear-gradient(to top, rgba(255, 107, 53, 0.15), transparent);
 }
 
 .bottom-nav-item:nth-child(3):hover {
-  color: #FF8C69;
-  background: rgba(255, 140, 105, 0.08);
+  color: #FF6B35;
+  background: rgba(255, 107, 53, 0.08);
 }
 
 .bottom-nav-item .icon {
