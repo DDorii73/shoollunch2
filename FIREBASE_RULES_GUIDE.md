@@ -88,3 +88,4 @@ Firebase Console의 Rules 탭에서 "Rules Playground"를 사용하여 규칙을
 6. **관리자가 데이터 삭제**: ✅ 허용되어야 함
 7. **일반 사용자가 데이터 삭제**: ❌ 거부되어야 함
 
+

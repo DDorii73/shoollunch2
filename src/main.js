@@ -162,12 +162,49 @@ async function fetchTodayMenu() {
         console.log('💊 영양 정보:', ntrInfo);
         console.log('🌾 원산지 정보:', orplcInfo);
         
-        // 총 칼로리 파싱
-        if (calInfo) {
+        // 총 칼로리 파싱 (오류 처리 강화)
+        totalCalories = 0; // 초기화
+        if (calInfo && typeof calInfo === 'string') {
+          try {
+            // 다양한 형식의 칼로리 정보 파싱 시도
+            // 예: "500 kcal", "500kcal", "500", "500.5 kcal" 등
           const calMatch = calInfo.match(/(\d+(?:\.\d+)?)\s*kcal/i);
-          if (calMatch) {
-            totalCalories = parseFloat(calMatch[1]);
+            if (calMatch && calMatch[1]) {
+              const parsedCal = parseFloat(calMatch[1]);
+              // 유효한 숫자인지 확인 (NaN, Infinity, 음수 체크)
+              if (!isNaN(parsedCal) && isFinite(parsedCal) && parsedCal > 0) {
+                totalCalories = parsedCal;
+                console.log('✅ 총 칼로리 파싱 성공:', totalCalories, 'kcal');
+              } else {
+                console.warn('⚠️ 총 칼로리 파싱 실패: 유효하지 않은 값', parsedCal);
+              }
+            } else {
+              // kcal 단위가 없는 경우 숫자만 추출 시도
+              const numMatch = calInfo.match(/(\d+(?:\.\d+)?)/);
+              if (numMatch && numMatch[1]) {
+                const parsedCal = parseFloat(numMatch[1]);
+                if (!isNaN(parsedCal) && isFinite(parsedCal) && parsedCal > 0) {
+                  totalCalories = parsedCal;
+                  console.log('✅ 총 칼로리 파싱 성공 (단위 없음):', totalCalories, 'kcal');
+                } else {
+                  console.warn('⚠️ 총 칼로리 파싱 실패: 유효하지 않은 숫자', parsedCal);
+                }
+              } else {
+                console.warn('⚠️ 총 칼로리 정보에서 숫자를 찾을 수 없습니다:', calInfo);
+              }
+            }
+          } catch (error) {
+            console.error('❌ 총 칼로리 파싱 중 오류 발생:', error);
+            totalCalories = 0;
           }
+        } else {
+          console.warn('⚠️ 칼로리 정보가 없거나 잘못된 형식입니다:', calInfo);
+        }
+        
+        // 총 칼로리가 0이거나 유효하지 않은 경우 경고
+        if (!totalCalories || totalCalories <= 0) {
+          console.warn('⚠️ 총 칼로리가 유효하지 않습니다. 추정 칼로리를 사용합니다.');
+          totalCalories = 0; // 0으로 설정하여 추정 칼로리 사용 유도
         }
         
         // 영양 정보 파싱
@@ -315,8 +352,9 @@ function getAdjustedCalories(menuName) {
   // 먼저 추정 칼로리 계산
   const estimatedCal = estimateCalories(menuName);
   
-  // API에서 가져온 총 칼로리가 없거나 todayMenu가 없으면 추정값 그대로 반환
-  if (!totalCalories || totalCalories <= 0 || !todayMenu || todayMenu.length === 0) {
+  // API에서 가져온 총 칼로리가 없거나 유효하지 않거나 todayMenu가 없으면 추정값 그대로 반환
+  if (!totalCalories || totalCalories <= 0 || !isFinite(totalCalories) || !todayMenu || todayMenu.length === 0) {
+    console.log('📊 추정 칼로리 사용:', menuName, estimatedCal, 'kcal (API 총 칼로리 없음)');
     return estimatedCal;
   }
   
@@ -326,16 +364,31 @@ function getAdjustedCalories(menuName) {
     estimatedSum += estimateCalories(menu.name);
   });
   
-  // 추정 합이 0이면 추정값 그대로 반환
-  if (estimatedSum === 0) {
+  // 추정 합이 0이거나 유효하지 않으면 추정값 그대로 반환
+  if (!estimatedSum || estimatedSum <= 0 || !isFinite(estimatedSum)) {
+    console.log('📊 추정 칼로리 사용:', menuName, estimatedCal, 'kcal (추정 합 계산 실패)');
     return estimatedCal;
   }
   
   // 비율 계산: API 총 칼로리 / 추정 칼로리 합
   const ratio = totalCalories / estimatedSum;
   
+  // 비율이 유효하지 않은 경우 (0, 음수, Infinity, NaN) 추정값 반환
+  if (!ratio || ratio <= 0 || !isFinite(ratio)) {
+    console.warn('⚠️ 칼로리 비율 계산 실패:', { totalCalories, estimatedSum, ratio });
+    return estimatedCal;
+  }
+  
   // 비율을 적용한 칼로리 반환 (소수점 둘째 자리까지)
-  return Math.round(estimatedCal * ratio * 100) / 100;
+  const adjustedCal = Math.round(estimatedCal * ratio * 100) / 100;
+  
+  // 최종 값이 유효한지 확인
+  if (!adjustedCal || adjustedCal <= 0 || !isFinite(adjustedCal)) {
+    console.warn('⚠️ 조정된 칼로리가 유효하지 않음:', adjustedCal, '→ 추정값 사용');
+    return estimatedCal;
+  }
+  
+  return adjustedCal;
 }
 
 // 챗봇 상태 관리
@@ -456,7 +509,7 @@ ${todayMenu.map((m, i) => {
   const allergyText = m.allergyNames ? ` (알레르기: ${m.allergyNames})` : '';
   return `${i + 1}. ${m.name}${allergyText}`;
 }).join('\n')}
-총 칼로리: ${totalCalories > 0 ? totalCalories.toFixed(1) : 0}kcal
+총 칼로리: ${(totalCalories && totalCalories > 0 && isFinite(totalCalories)) ? totalCalories.toFixed(1) : 0}kcal${(!totalCalories || totalCalories <= 0 || !isFinite(totalCalories)) ? ' (칼로리 정보 없음)' : ''}
 
 
 ${userAllergies.length > 0 ? `[기록 관리 탭에 입력한 학생 정보]
@@ -632,15 +685,29 @@ function formatMenuList() {
     menuText += `${index + 1}. ${menu.name}${allergyText}\n`;
   });
   
-  // 총 칼로리 (API에서 가져온 값 사용)
-  const displayCalories = totalCalories > 0 ? totalCalories : 0;
+  // 총 칼로리 (API에서 가져온 값 사용, 유효성 검사)
+  const isValidCalories = totalCalories && totalCalories > 0 && isFinite(totalCalories);
+  const displayCalories = isValidCalories ? totalCalories : 0;
   menuText += `\n총 칼로리: ${displayCalories.toFixed(1)}kcal`;
+  
+  // 칼로리 정보가 없는 경우 안내 메시지 추가
+  if (!isValidCalories) {
+    menuText += '\n(칼로리 정보가 제공되지 않았습니다)';
+  }
   
   return menuText;
 }
 
 // 챗봇 시작
 async function startChatbot() {
+  // 챗봇 섹션 표시 및 기록 섹션 숨기기
+  chatbotSection.classList.remove('hidden');
+  recordSection.classList.add('hidden');
+  
+  // 탭 상태 업데이트
+  if (tabChatbot) tabChatbot.classList.add('active');
+  if (tabRecord) tabRecord.classList.remove('active');
+  
   // 챗봇 상태 초기화
   chatTurn = 0;
   chatHistory = [];
@@ -859,9 +926,8 @@ async function endChatbot() {
     }
   }
   
-  chatbotSection.classList.add('hidden');
-  recordSection.classList.remove('hidden');
-  initializeRecordSection();
+  // 챗봇 종료 시 기록 섹션으로 자동 전환하지 않음
+  // 사용자가 탭을 통해 직접 전환할 수 있도록 함
 }
 
 // 기록 섹션 초기화
@@ -1099,29 +1165,51 @@ function updateTotalCalories() {
   // 각 메뉴의 칼로리 × 인분 수를 합산하여 실제 섭취 칼로리 계산
   let actualCalories = 0;
   
+  if (!todayMenu || todayMenu.length === 0) {
+    console.warn('⚠️ 메뉴 정보가 없어 칼로리를 계산할 수 없습니다.');
+    if (lunchTotalCalories) {
+      lunchTotalCalories.textContent = '0';
+    }
+    if (calorieDetail) {
+      calorieDetail.style.display = 'none';
+    }
+    return;
+  }
+  
   todayMenu.forEach(menu => {
     const count = lunchRecords[menu.name] || 0;
     if (count > 0) {
       const menuCalories = getAdjustedCalories(menu.name);
-      actualCalories += menuCalories * count;
+      // 유효한 칼로리인지 확인
+      if (menuCalories && menuCalories > 0 && isFinite(menuCalories)) {
+        actualCalories += menuCalories * count;
+      }
     }
   });
   
   // 기본 칼로리(API에서 가져온 값, 1인분 기준)와 실제 섭취 칼로리 표시
-  const baseCalories = totalCalories > 0 ? Math.round(totalCalories) : 0;
-  const actualCaloriesRounded = Math.round(actualCalories);
+  // totalCalories가 유효하지 않은 경우 0으로 처리
+  const isValidBaseCalories = totalCalories && totalCalories > 0 && isFinite(totalCalories);
+  const baseCalories = isValidBaseCalories ? Math.round(totalCalories) : 0;
+  const actualCaloriesRounded = isFinite(actualCalories) && actualCalories >= 0 ? Math.round(actualCalories) : 0;
   
-  // 총 칼로리 표시
-  lunchTotalCalories.textContent = actualCaloriesRounded > 0 ? actualCaloriesRounded : baseCalories;
+  // 총 칼로리 표시 (실제 섭취 칼로리가 있으면 표시, 없으면 기본 칼로리 표시)
+  if (lunchTotalCalories) {
+    lunchTotalCalories.textContent = actualCaloriesRounded > 0 ? actualCaloriesRounded : (baseCalories > 0 ? baseCalories : 0);
+  }
   
   // 상세 정보 표시
   if (calorieDetail) {
-    if (actualCaloriesRounded > 0 && actualCaloriesRounded !== baseCalories) {
+    if (actualCaloriesRounded > 0 && baseCalories > 0 && actualCaloriesRounded !== baseCalories) {
       // 실제 섭취 칼로리와 기본 칼로리가 다른 경우 상세 정보 표시
       calorieDetail.textContent = `기본 칼로리(1인분 기준): ${baseCalories}kcal → 실제 섭취: ${actualCaloriesRounded}kcal`;
       calorieDetail.style.display = 'block';
     } else if (actualCaloriesRounded > 0) {
-      // 같으면 간단히 표시
+      // 실제 섭취 칼로리만 있는 경우
+      calorieDetail.textContent = `실제 섭취 칼로리: ${actualCaloriesRounded}kcal`;
+      calorieDetail.style.display = 'block';
+    } else if (baseCalories > 0) {
+      // 기본 칼로리만 있는 경우
       calorieDetail.textContent = `기본 칼로리(1인분 기준): ${baseCalories}kcal`;
       calorieDetail.style.display = 'block';
     } else {
@@ -1550,7 +1638,7 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
 
 오늘 학생이 먹은 점심 식사:
 ${menuSummary}
-총 칼로리: ${lunchData.totalCalories}kcal
+총 칼로리: ${(lunchData.totalCalories && lunchData.totalCalories > 0 && isFinite(lunchData.totalCalories)) ? lunchData.totalCalories : '정보 없음'}kcal
 
 ${userBMR ? `학생의 기초대사량(BMR): ${Math.round(userBMR)}kcal/일` : ''}
 
@@ -1941,20 +2029,34 @@ async function submitLunch() {
     const count = lunchRecords[menu.name] || 0;
     if (count > 0) {
       const menuCalories = getAdjustedCalories(menu.name);
-      actualCalories += menuCalories * count;
+      // 유효한 칼로리인지 확인
+      if (menuCalories && menuCalories > 0 && isFinite(menuCalories)) {
+        actualCalories += menuCalories * count;
+      }
     }
   });
   
+  // totalCalories 유효성 검사
+  const isValidBaseCalories = totalCalories && totalCalories > 0 && isFinite(totalCalories);
+  const baseCaloriesValue = isValidBaseCalories ? totalCalories : 0;
+  const actualCaloriesRounded = (actualCalories > 0 && isFinite(actualCalories)) ? Math.round(actualCalories) : 0;
+  
   const lunchData = {
     records: lunchRecords,
-    totalCalories: actualCalories > 0 ? Math.round(actualCalories) : totalCalories, // 실제 섭취 칼로리
-    baseCalories: totalCalories, // 기본 칼로리 (1인분 기준, API에서 가져온 값)
-    menuItems: todayMenu.map(menu => ({
-      name: menu.name,
-      count: lunchRecords[menu.name] || 0,
-      calories: getAdjustedCalories(menu.name) * (lunchRecords[menu.name] || 0), // 각 메뉴의 실제 칼로리 (비율 조정됨)
-      allergyNames: menu.allergyNames || ''
-    }))
+    totalCalories: actualCaloriesRounded > 0 ? actualCaloriesRounded : baseCaloriesValue, // 실제 섭취 칼로리 또는 기본 칼로리
+    baseCalories: baseCaloriesValue, // 기본 칼로리 (1인분 기준, API에서 가져온 값, 유효하지 않으면 0)
+    menuItems: todayMenu.map(menu => {
+      const count = lunchRecords[menu.name] || 0;
+      const menuCalories = getAdjustedCalories(menu.name);
+      // 유효한 칼로리인지 확인
+      const validCalories = (menuCalories && menuCalories > 0 && isFinite(menuCalories)) ? menuCalories : 0;
+      return {
+        name: menu.name,
+        count: count,
+        calories: validCalories * count, // 각 메뉴의 실제 칼로리 (비율 조정됨, 유효하지 않으면 0)
+        allergyNames: menu.allergyNames || ''
+      };
+    })
   };
   
   console.log('점심 제출 데이터:', lunchData);
@@ -2272,6 +2374,45 @@ backBtn.addEventListener('click', () => {
   window.location.href = '/index.html';
 });
 
+// 탭 전환 로직
+const tabChatbot = document.getElementById('tab-chatbot');
+const tabRecord = document.getElementById('tab-record');
+
+// 탭 전환 함수
+function switchTab(tabName) {
+  // 모든 탭 비활성화
+  tabChatbot?.classList.remove('active');
+  tabRecord?.classList.remove('active');
+  
+  // 모든 섹션 숨기기
+  chatbotSection.classList.add('hidden');
+  recordSection.classList.add('hidden');
+  
+  // 선택된 탭 활성화 및 해당 섹션 표시
+  if (tabName === 'chatbot') {
+    tabChatbot?.classList.add('active');
+    chatbotSection.classList.remove('hidden');
+  } else if (tabName === 'record') {
+    tabRecord?.classList.add('active');
+    recordSection.classList.remove('hidden');
+    // 기록 섹션으로 전환 시 초기화
+    initializeRecordSection();
+  }
+}
+
+// 탭 클릭 이벤트 리스너
+if (tabChatbot) {
+  tabChatbot.addEventListener('click', () => {
+    switchTab('chatbot');
+  });
+}
+
+if (tabRecord) {
+  tabRecord.addEventListener('click', () => {
+    switchTab('record');
+  });
+}
+
 // 영양 브리핑 챗봇 전송 버튼
 nutritionSendBtn.addEventListener('click', async () => {
   const message = nutritionChatInput.value.trim();
@@ -2305,8 +2446,8 @@ nutritionSendBtn.addEventListener('click', async () => {
   // 대화 턴에 따라 처리
   if (nutritionChatTurn === 1) {
     // 1턴 응답 (음식 양 피드백) - 이미 2턴(알레르기)으로 자동 전환됨
-    const botResponse = await callNutritionChatGPTAPI(message, lunchData);
-    addNutritionMessage('bot', botResponse);
+  const botResponse = await callNutritionChatGPTAPI(message, lunchData);
+  addNutritionMessage('bot', botResponse);
   } else if (nutritionChatTurn === 2) {
     // 2턴 응답 (알레르기 확인) - 사용자 응답 후 추천 질문 표시
     const botResponse = await callNutritionChatGPTAPI(message, lunchData);
@@ -2382,7 +2523,8 @@ nutritionChatInput.addEventListener('keypress', async (e) => {
 // 영양 브리핑 챗봇 닫기
 closeNutritionBtn.addEventListener('click', () => {
   nutritionChatbotSection.classList.add('hidden');
-  recordSection.classList.remove('hidden');
+  // 기록 섹션으로 전환하고 탭도 업데이트
+  switchTab('record');
   // 대화 히스토리는 유지 (다시 열면 이어서 대화 가능)
 });
 
