@@ -99,25 +99,51 @@ async function fetchTodayMenu() {
     const dateStr = `${year}${month}${day}`;
     console.log('📅 조회할 날짜:', `${year}-${month}-${day}`, `(${dateStr})`);
     
-    // NEIS API 호출 (직접 호출 - NEIS API는 CORS를 허용함)
-    const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
+    // NEIS API 호출 (프록시를 통해 호출하여 CORS 문제 해결)
+    // vite.config.js에서 프록시 설정이 되어 있으므로 /api/neis 경로 사용
+    const apiUrl = `/api/neis?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
     
-    console.log('🌐 NEIS API 호출:', apiUrl);
+    console.log('🌐 NEIS API 호출 (프록시 경유):', apiUrl);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
     
     console.log('📡 API 응답 상태:', response.status, response.statusText);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ API 호출 실패:', errorText);
-      throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
+      
+      // 프록시가 실패한 경우 직접 호출 시도
+      console.log('🔄 프록시 실패, 직접 호출 시도...');
+      const directUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
+      const directResponse = await fetch(directUrl);
+      
+      if (!directResponse.ok) {
+        throw new Error(`HTTP 오류: ${directResponse.status} ${directResponse.statusText}`);
+      }
+      
+      const directData = await directResponse.json();
+      return await processNeisApiResponse(directData);
     }
     
     const data = await response.json();
-    console.log('📦 NEIS API 응답 데이터:', JSON.stringify(data, null, 2));
-    
-    // API 응답 파싱
+    return await processNeisApiResponse(data);
+  } catch (error) {
+    console.error('❌ NEIS API 호출 오류:', error);
+    todayMenu = getDefaultMenu();
+  }
+}
+
+// NEIS API 응답 처리 함수
+async function processNeisApiResponse(data) {
+  console.log('📦 NEIS API 응답 데이터:', JSON.stringify(data, null, 2));
+  
+  // API 응답 파싱
     // NEIS API 응답 구조 확인
     console.log('🔍 응답 구조 분석:', {
       hasMealServiceDietInfo: !!data.mealServiceDietInfo,
@@ -312,10 +338,6 @@ async function fetchTodayMenu() {
       console.log('전체 응답:', JSON.stringify(data, null, 2));
       todayMenu = getDefaultMenu();
     }
-  } catch (error) {
-    console.error('❌ NEIS API 호출 오류:', error);
-    todayMenu = getDefaultMenu();
-  }
 }
 
 // 기본 메뉴 반환 함수
@@ -476,7 +498,7 @@ async function callChatGPTAPI(userMessage) {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -1448,7 +1470,7 @@ async function analyzeSnackImage(imageFile) {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'user',
@@ -1630,7 +1652,7 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
