@@ -45,17 +45,10 @@ const monthSelect = document.getElementById('month-select');
 const loadFoodRecordsBtn = document.getElementById('load-food-records-btn');
 const foodRecordsContainer = document.getElementById('food-records-container');
 
-// 음식별 섭취량 그래프 관련 DOM 요소
-const foodChartDateInput = document.getElementById('food-chart-date');
-const loadFoodChartBtn = document.getElementById('load-food-chart-btn');
-const foodChartCanvas = document.getElementById('food-consumption-chart');
-const foodChartMessage = document.getElementById('food-chart-message');
-
 let currentUser = null;
 let calculatedBmi = null;
 let calculatedBmr = null;
 let weightBmiChart = null;
-let foodConsumptionChart = null;
 
 // 오늘의 날짜 가져오기 (YYYY-MM-DD 형식)
 function getTodayDate() {
@@ -704,196 +697,6 @@ if (loadFoodRecordsBtn) {
   });
 }
 
-// 날짜별 음식별 섭취량 그래프 불러오기
-async function loadFoodConsumptionChart() {
-  if (!currentUser || !db || !foodChartDateInput.value) {
-    alert('날짜를 선택해주세요.');
-    return;
-  }
-  
-  const selectedDate = foodChartDateInput.value;
-  
-  try {
-    foodChartMessage.textContent = '기록을 불러오는 중...';
-    
-    // 해당 날짜의 점심 기록 불러오기
-    const recordsRef = collection(db, 'foodRecords');
-    const q = query(
-      recordsRef,
-      where('userId', '==', currentUser.uid),
-      where('date', '==', selectedDate),
-      where('type', '==', 'lunch')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    
-    if (querySnapshot.empty) {
-      foodChartMessage.textContent = `${selectedDate}에는 점심 기록이 없습니다.`;
-      if (foodConsumptionChart) {
-        foodConsumptionChart.destroy();
-        foodConsumptionChart = null;
-      }
-      return;
-    }
-    
-    // 가장 최근 기록 가져오기 (같은 날 여러 번 기록한 경우)
-    let latestRecord = null;
-    let latestTimestamp = null;
-    
-    querySnapshot.forEach(doc => {
-      const data = doc.data();
-      const timestamp = data.createdAt || data.updatedAt;
-      if (!latestTimestamp || (timestamp && timestamp.toMillis() > latestTimestamp.toMillis())) {
-        latestRecord = data;
-        latestTimestamp = timestamp;
-      }
-    });
-    
-    if (!latestRecord || !latestRecord.menuItems || latestRecord.menuItems.length === 0) {
-      foodChartMessage.textContent = `${selectedDate}에는 메뉴 정보가 없습니다.`;
-      if (foodConsumptionChart) {
-        foodConsumptionChart.destroy();
-        foodConsumptionChart = null;
-      }
-      return;
-    }
-    
-    // 그래프 그리기
-    drawFoodConsumptionChart(latestRecord.menuItems);
-    foodChartMessage.textContent = `${selectedDate}의 음식별 섭취량`;
-  } catch (error) {
-    console.error('음식별 섭취량 그래프 불러오기 오류:', error);
-    foodChartMessage.textContent = `기록을 불러오는 중 오류가 발생했습니다: ${error.message}`;
-  }
-}
-
-// 음식별 섭취량 그래프 그리기
-function drawFoodConsumptionChart(menuItems) {
-  if (!foodChartCanvas) return;
-  
-  const ctx = foodChartCanvas.getContext('2d');
-  
-  // 기존 차트가 있으면 제거
-  if (foodConsumptionChart) {
-    foodConsumptionChart.destroy();
-  }
-  
-  // 메뉴 이름과 섭취량 추출
-  const labels = menuItems.map(item => item.name);
-  const data = menuItems.map(item => item.count || 0);
-  
-  foodConsumptionChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: '섭취량 (인분)',
-          data: data,
-          backgroundColor: data.map(count => {
-            if (count === 0) return 'rgba(200, 200, 200, 0.3)'; // 안 먹은 음식
-            if (count === 1) return 'rgba(76, 175, 80, 0.7)'; // 1인분 (권장)
-            if (count >= 3) return 'rgba(244, 67, 54, 0.7)'; // 3인분 이상 (과다)
-            return 'rgba(255, 152, 0, 0.7)'; // 2인분 (주의)
-          }),
-          borderColor: data.map(count => {
-            if (count === 0) return 'rgba(200, 200, 200, 0.5)';
-            if (count === 1) return 'rgba(76, 175, 80, 1)';
-            if (count >= 3) return 'rgba(244, 67, 54, 1)';
-            return 'rgba(255, 152, 0, 1)';
-          }),
-          borderWidth: 2
-        },
-        {
-          label: '권장 섭취량 (1인분)',
-          data: labels.map(() => 1),
-          type: 'line',
-          borderColor: 'rgba(76, 175, 80, 0.8)',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          fill: false,
-          pointRadius: 0,
-          tension: 0
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 2,
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: {
-            usePointStyle: true,
-            padding: 15,
-            font: {
-              size: 12
-            }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              if (context.datasetIndex === 0) {
-                const count = context.parsed.y;
-                let status = '';
-                if (count === 0) status = ' (미섭취)';
-                else if (count === 1) status = ' (권장)';
-                else if (count >= 3) status = ' (과다 섭취)';
-                else status = ' (주의)';
-                return `섭취량: ${count}인분${status}`;
-              } else {
-                return '권장 섭취량: 1인분';
-              }
-            }
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 5,
-          ticks: {
-            stepSize: 1,
-            callback: function(value) {
-              return value + '인분';
-            }
-          },
-          title: {
-            display: true,
-            text: '섭취량 (인분)',
-            font: {
-              size: 12
-            }
-          }
-        },
-        x: {
-          ticks: {
-            maxRotation: 45,
-            minRotation: 45,
-            font: {
-              size: 11
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
-// 음식별 섭취량 그래프 불러오기 버튼 클릭
-if (loadFoodChartBtn) {
-  loadFoodChartBtn.addEventListener('click', async () => {
-    if (!foodChartDateInput.value) {
-      alert('날짜를 선택해주세요.');
-      return;
-    }
-    await loadFoodConsumptionChart();
-  });
-}
-
 // 사용자 인증 상태 확인
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
@@ -905,10 +708,6 @@ if (auth) {
       initializeMonthSelector();
       // 기본 그래프 로드
       await loadChartData();
-      // 음식별 섭취량 그래프 날짜 초기화 (오늘 날짜)
-      if (foodChartDateInput) {
-        foodChartDateInput.value = getTodayDate();
-      }
     } else {
       currentUser = null;
       console.warn('⚠️ 사용자가 로그인하지 않았습니다.');

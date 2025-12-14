@@ -14,8 +14,7 @@
       
       <div class="welcome-section">
         <h2>안녕하세요! 👋</h2>
-        <p>이 시스템은 학생들의 급식 섭취를 체계적으로 관리하고 기록할 수 있도록 도와줍니다.</p>
-        <p>학생은 챗봇과 대화하며 오늘의 급식을 기록하고, 교사는 학생들의 기록을 한눈에 확인할 수 있습니다.</p>
+        <p>오늘 식단표를 알아보고, 음식을 기록할 수 있어요.</p>
       </div>
 
       <div class="features">
@@ -29,10 +28,10 @@
           <h3>음식 기록</h3>
           <p>점심과 간식을 쉽게 기록</p>
         </div>
-        <div class="feature-item">
+        <div class="feature-item" id="monitoring-feature">
           <div class="emoji">📊</div>
           <h3>모니터링</h3>
-          <p>교사가 학생 기록 확인</p>
+          <p>기록 확인</p>
         </div>
       </div>
 
@@ -41,11 +40,15 @@
       <div class="nav-buttons hidden">
         <a href="/recordManagement.html" class="nav-btn record">
           <span>📋</span>
-          <span>기록 관리</span>
+          <span>내정보</span>
         </a>
         <a href="/student.html" class="nav-btn student">
           <span>👨‍🎓</span>
-          <span>학생 페이지로 이동</span>
+          <span>오늘의 급식</span>
+        </a>
+        <a href="/student.html" class="nav-btn food-record" id="food-record-btn">
+          <span>🍽️</span>
+          <span>음식 기록</span>
         </a>
         <a href="/teacherMonitor.html" id="teacher-monitor-btn" class="nav-btn teacher hidden">
           <span>👨‍🏫</span>
@@ -67,17 +70,6 @@
 
       <div id="user-info" class="user-info hidden">
         <p>안녕하세요, <span id="user-name"></span>님!</p>
-        <div class="role-selector">
-          <label>
-            <input type="radio" name="role" value="student" checked>
-            학생
-          </label>
-          <label>
-            <input type="radio" name="role" value="teacher">
-            교사
-          </label>
-        </div>
-        <button id="enter-btn" class="enter-btn">입장하기</button>
         <button id="logout-btn" class="logout-btn">로그아웃</button>
       </div>
     </div>

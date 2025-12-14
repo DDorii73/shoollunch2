@@ -9,29 +9,18 @@
 </head>
 <body>
   <div class="student-container">
+    <button id="home-btn" class="home-btn" onclick="window.location.href='/index.html'" title="홈으로">🏠</button>
     <header class="student-header">
-      <div style="flex: 1;">
-        <h1>🍽️ 오늘의 급식</h1>
-        <div id="user-info-header" style="margin-top: 8px; font-size: 14px; color: var(--text-light);">
-          <span id="user-name-display"></span>
-          <span id="user-email-display" style="margin-left: 10px;"></span>
-        </div>
-      </div>
+      <h1>🍽️ 오늘의 급식</h1>
       <button id="back-btn" class="back-btn">← 돌아가기</button>
     </header>
-
-    <!-- 네비게이션 탭 -->
-    <div class="nav-tabs">
-      <button id="tab-chatbot" class="nav-tab active">💬 챗봇 대화</button>
-      <button id="tab-record" class="nav-tab">📝 음식 기록</button>
-    </div>
 
     <!-- 챗봇 섹션 -->
     <div id="chatbot-section" class="chatbot-section">
       <div class="chatbot-container">
         <div class="chatbot-header">
           <h2>급식 챗봇과 대화하기</h2>
-          <p class="chatbot-subtitle">오늘의 급식에 대해 이야기해보세요!</p>
+          <p class="chatbot-subtitle">오늘의 급식에 대해 이야기해보세요! (3~7회 대화)</p>
         </div>
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">
@@ -53,7 +42,7 @@
         <div class="meal-record">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 style="margin: 0;">🍱 점심 급식</h3>
-            <button id="new-lunch-btn" class="new-input-btn hidden" title="새로입력하기">✏️</button>
+            <button id="new-lunch-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
           </div>
           <p class="meal-description">오늘 제공된 메뉴 중 먹은 것을 클릭하거나 선택하고 횟수를 입력하세요.</p>
           
@@ -69,8 +58,8 @@
           </div>
           
           <div class="calorie-summary">
-            <h4>총 칼로리: <span id="lunch-total-calories">0</span> kcal</h4>
-            <p id="calorie-detail" style="font-size: 14px; margin-top: 8px; color: var(--text-light); display: none;"></p>
+            <h4>총 섭취 칼로리: <span id="lunch-total-calories">0</span> kcal</h4>
+            <p id="calorie-detail"></p>
           </div>
           
           <button id="submit-lunch-btn" class="submit-btn lunch-submit">점심 제출하기</button>
@@ -80,7 +69,7 @@
         <div class="meal-record">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 style="margin: 0;">🍪 방과후 간식</h3>
-            <button id="new-snack-btn" class="new-input-btn hidden" title="새로입력하기">✏️</button>
+            <button id="new-snack-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
           </div>
           <p class="meal-description">먹은 간식을 입력하세요.</p>
           
@@ -125,6 +114,23 @@
       </div>
     </div>
   </div>
+  
+  <!-- 하단 네비게이션 바 -->
+  <nav class="bottom-nav">
+    <a href="/index.html" class="bottom-nav-item">
+      <span class="icon">🏠</span>
+      <span class="label">홈</span>
+    </a>
+    <a href="/recordManagement.html" class="bottom-nav-item">
+      <span class="icon">📋</span>
+      <span class="label">내정보</span>
+    </a>
+    <a href="/student.html" class="bottom-nav-item active">
+      <span class="icon">🍽️</span>
+      <span class="label">급식</span>
+    </a>
+  </nav>
+  
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

@@ -8,18 +8,18 @@ const googleLoginBtn = document.getElementById('google-login-btn');
 const loginStatus = document.getElementById('login-status');
 const userInfo = document.getElementById('user-info');
 const userName = document.getElementById('user-name');
-const enterBtn = document.getElementById('enter-btn');
 const logoutBtn = document.getElementById('logout-btn');
-const roleRadios = document.querySelectorAll('input[name="role"]');
 const navButtons = document.querySelector('.nav-buttons');
 const teacherMonitorBtn = document.getElementById('teacher-monitor-btn');
+const foodRecordBtn = document.getElementById('food-record-btn');
+const monitoringFeature = document.getElementById('monitoring-feature');
 
 // 초기 상태 설정
 function initializeUI() {
   // 로그인 전에는 네비게이션 버튼과 사용자 정보 숨김
-  if (navButtons) {
-    navButtons.classList.add('hidden');
-  }
+if (navButtons) {
+  navButtons.classList.add('hidden');
+}
   if (userInfo) {
     userInfo.classList.add('hidden');
   }
@@ -75,7 +75,7 @@ googleLoginBtn.addEventListener('click', async () => {
     // 로그인 성공 후 UI 업데이트
     showUserInfo(user);
     showNavButtons(user);
-    loginStatus.textContent = '✅ 로그인 성공! 이제 학생 활동 또는 교사 모니터링 페이지로 이동할 수 있습니다.';
+    loginStatus.textContent = '✅ 로그인 성공!';
     loginStatus.className = 'success';
   } catch (error) {
     console.error('로그인 오류:', error);
@@ -136,24 +136,15 @@ logoutBtn.addEventListener('click', async () => {
   }
 });
 
-// 입장하기 버튼
-enterBtn.addEventListener('click', () => {
-  const selectedRole = document.querySelector('input[name="role"]:checked').value;
-  const user = auth.currentUser;
-  
-  if (!user) return;
-  
-  // 선택한 역할을 Firestore에 저장
-  const userRef = doc(db, 'users', user.uid);
-  setDoc(userRef, { role: selectedRole }, { merge: true });
-  
-  // 역할에 따라 페이지 이동
-  if (selectedRole === 'student') {
+// 음식 기록 버튼 클릭 시 student.html의 음식 기록 탭으로 이동
+if (foodRecordBtn) {
+  foodRecordBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    // localStorage에 플래그 설정하여 student.html에서 음식 기록 탭을 열도록 함
+    localStorage.setItem('openFoodRecordTab', 'true');
     window.location.href = '/student.html';
-  } else {
-    window.location.href = '/teacherMonitor.html';
-  }
-});
+  });
+}
 
 // 네비게이션 버튼 클릭 이벤트 (로그인 및 권한 확인)
 if (navButtons) {
@@ -192,22 +183,11 @@ function showUserInfo(user) {
   userName.textContent = user.displayName || user.email;
   userInfo.classList.remove('hidden');
   googleLoginBtn.style.display = 'none';
-  loginStatus.textContent = '';
-  loginStatus.className = '';
-  
-  // Firestore에서 역할 정보 가져오기
-  const userRef = doc(db, 'users', user.uid);
-  getDoc(userRef).then(docSnap => {
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      if (userData.role) {
-        const roleRadio = document.querySelector(`input[value="${userData.role}"]`);
-        if (roleRadio) {
-          roleRadio.checked = true;
-        }
-      }
-    }
-  });
+  // 로그인 성공 메시지 유지
+  if (loginStatus.textContent === '' || loginStatus.textContent.includes('로그인 성공')) {
+    loginStatus.textContent = '✅ 로그인 성공!';
+    loginStatus.className = 'success';
+  }
 }
 
 // 사용자 정보 숨기기
@@ -234,14 +214,26 @@ function showNavButtons(user) {
     navButtons.classList.remove('hidden');
   }
   
-  // 관리자 UID 체크 후 교사 모니터링 버튼 표시/숨김
-  if (teacherMonitorBtn && user) {
+  // 관리자 UID 체크 후 교사 모니터링 버튼 및 모니터링 feature 표시/숨김
+  if (user) {
     if (isAdmin(user.uid)) {
-      teacherMonitorBtn.classList.remove('hidden');
-      console.log('✅ 관리자 권한 확인: 교사 모니터링 버튼 표시');
+      // 관리자인 경우: 모니터링 feature와 버튼 표시
+      if (teacherMonitorBtn) {
+        teacherMonitorBtn.classList.remove('hidden');
+      }
+      if (monitoringFeature) {
+        monitoringFeature.style.display = 'block';
+      }
+      console.log('✅ 관리자 권한 확인: 교사 모니터링 버튼 및 feature 표시');
     } else {
-      teacherMonitorBtn.classList.add('hidden');
-      console.log('ℹ️ 일반 사용자: 교사 모니터링 버튼 숨김');
+      // 학생인 경우: 모니터링 feature와 버튼 숨김
+      if (teacherMonitorBtn) {
+        teacherMonitorBtn.classList.add('hidden');
+      }
+      if (monitoringFeature) {
+        monitoringFeature.style.display = 'none';
+      }
+      console.log('ℹ️ 일반 사용자: 교사 모니터링 버튼 및 feature 숨김');
     }
   }
 }

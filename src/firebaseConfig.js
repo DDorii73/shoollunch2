@@ -3,7 +3,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 // 환경변수에서 Firebase 설정 불러오기
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
@@ -41,7 +40,6 @@ let app;
 let auth;
 let googleProvider;
 let db;
-let storage;
 
 if (isFirebaseConfigured) {
   try {
@@ -52,7 +50,6 @@ if (isFirebaseConfigured) {
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     db = getFirestore(app);
-    storage = getStorage(app);
   } catch (error) {
     console.error('❌ Firebase 초기화 실패:', error);
     throw error;
@@ -80,4 +77,4 @@ function isAdmin(uid) {
   return adminUidList.includes(uid);
 }
 
-export { auth, googleProvider, db, storage, isAdmin };
+export { auth, googleProvider, db, isAdmin };
