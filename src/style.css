@@ -43,6 +43,10 @@ body {
   width: 100%;
   overflow-x: hidden;
   box-sizing: border-box;
+  /* 모바일에서 스크롤 최적화 */
+  -webkit-overflow-scrolling: touch;
+  /* 모바일에서 텍스트 선택 최적화 */
+  -webkit-tap-highlight-color: rgba(74, 144, 226, 0.2);
 }
 
 * {
@@ -283,9 +287,12 @@ body {
 
 @media (max-width: 768px) {
   .student-container {
-    padding: 16px;
-    padding-bottom: 20px;
+    padding: 12px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
     max-width: 100%;
+    /* 모바일에서 스크롤 최적화 */
+    min-height: 100vh;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -379,6 +386,8 @@ body {
     padding: 16px 12px;
     margin-bottom: 16px;
     border-radius: 16px;
+    /* 모바일에서 키보드가 올라올 때를 대비한 여백 */
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
 
@@ -447,11 +456,16 @@ body {
 
 @media (max-width: 768px) {
   .chat-messages {
-    height: 400px;
+    height: calc(100vh - 320px);
+    max-height: 500px;
+    min-height: 300px;
     padding: 16px;
     border-radius: 16px;
     margin-bottom: 16px;
     gap: 12px;
+    /* 모바일 스크롤 최적화 */
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
   }
 }
 
@@ -587,6 +601,25 @@ body {
   .chat-input-container {
     gap: 8px;
     padding: 0;
+    /* 모바일에서 키보드가 올라올 때를 대비 */
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    position: sticky;
+    bottom: 0;
+    background: var(--card-bg);
+    z-index: 10;
+  }
+  
+  .chat-input-container input {
+    min-height: 48px;
+    font-size: 16px;
+    padding: 14px 18px;
+  }
+  
+  .send-btn {
+    min-width: 48px;
+    min-height: 48px;
+    width: 48px;
+    height: 48px;
   }
 }
 
@@ -598,6 +631,11 @@ body {
   font-size: 16px;
   background: white;
   transition: all 0.3s;
+  /* 모바일에서 zoom 방지 (16px 이상) */
+  font-size: 16px;
+  /* 모바일에서 입력 필드 최적화 */
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .chat-input-container input:focus {
@@ -695,6 +733,8 @@ body {
   .record-section {
     padding: 16px 12px;
     border-radius: 16px;
+    /* 모바일에서 키보드가 올라올 때를 대비 */
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
   
   .record-student-image {
@@ -705,6 +745,15 @@ body {
   .record-header-image {
     margin-bottom: 20px;
     padding: 16px 0;
+  }
+  
+  /* 모바일에서 입력 섹션 최적화 */
+  .input-section {
+    padding-bottom: 20px;
+  }
+  
+  .meal-record {
+    margin-bottom: 24px;
   }
 }
 
@@ -851,6 +900,33 @@ body {
 }
 
 .count-btn {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border-color);
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  .count-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+}
+
+.count-btn {
   width: 35px;
   height: 35px;
   border: none;
@@ -865,6 +941,17 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 6px rgba(74, 144, 226, 0.3);
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  .count-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
 }
 
 .count-btn:hover {
@@ -886,12 +973,32 @@ body {
   font-weight: 700;
   color: #333333;
   background: #FFFFFF;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .count-input:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+}
+
+@media (max-width: 768px) {
+  .count-input {
+    min-height: 44px;
+    font-size: 16px;
+    width: 70px;
+    padding: 12px;
+  }
+  
+  .menu-item {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .menu-controls {
+    gap: 8px;
+  }
 }
 
 .menu-total-calories {
@@ -975,6 +1082,17 @@ body {
   margin-top: 15px;
 }
 
+@media (max-width: 768px) {
+  .submit-btn {
+    min-height: 52px;
+    padding: 16px 20px;
+    font-size: 17px;
+    /* 모바일에서 터치 영역 확보 */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
 .submit-btn.lunch-submit {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   color: white;
@@ -1051,10 +1169,34 @@ body {
   padding: 12px 15px;
   border: 2px solid #CCCCCC;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 16px;
   color: #333333;
   background: #FFFFFF;
   font-weight: 500;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+@media (max-width: 768px) {
+  .food-input-group {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .food-input-group input {
+    min-height: 48px;
+    padding: 14px 16px;
+    font-size: 16px;
+    flex: 1 1 100%;
+  }
+  
+  .add-btn,
+  .camera-btn {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px 18px;
+    font-size: 16px;
+  }
 }
 
 .food-input-group input:focus {
@@ -1422,6 +1564,23 @@ body {
   border-radius: 8px;
   font-size: 16px;
   transition: all 0.3s;
+  /* 모바일에서 zoom 방지 */
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+@media (max-width: 768px) {
+  .input-group input[type="number"],
+  .input-group input[type="date"],
+  .input-group input[type="text"],
+  .input-group select {
+    min-height: 48px;
+    padding: 14px 16px;
+    font-size: 16px;
+    /* 모바일에서 터치 영역 확보 */
+    touch-action: manipulation;
+  }
 }
 
 .input-group input[type="number"]:focus {
