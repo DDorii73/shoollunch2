@@ -428,9 +428,9 @@ async function callChatGPTAPI(userMessage) {
     let response;
     
     const messages = [
-      {
-        role: 'system',
-        content: `당신은 학교 급식 관리 챗봇입니다. 학생들과 친근하고 따뜻하게 대화하며 오늘의 급식에 대해 이야기합니다.
+          {
+            role: 'system',
+            content: `당신은 학교 급식 관리 챗봇입니다. 학생들과 친근하고 따뜻하게 대화하며 오늘의 급식에 대해 이야기합니다.
 
 **매우 중요: 말투 및 어휘 사용 규칙**
 - 반드시 반말을 사용하세요. ("~해", "~야", "~지" 등)
@@ -514,8 +514,8 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 10. 알레르기 정보는 컨디션 질문 후 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
 13. **기초대사량(BMR), BMI, 목표 몸무게, 식사 비율 등은 언급하지 마세요. 기록 관리 탭에서만 다루는 내용입니다.**
 14. "오늘의 급식 칼로리가 맞는지 확인해볼까?" 같은 칼로리 확인 질문은 하지 마세요. 대신 "00에게 적합한 메뉴를 알아볼까?" 또는 "00에게 추천하는 메뉴를 알려줄까?" 같은 방식으로 학생에게 적합한 메뉴를 제안하는 방향으로 대화를 이끌어주세요.`
-      },
-      ...chatHistory
+          },
+          ...chatHistory
     ];
 
     if (functionUrl) {
@@ -546,10 +546,10 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',
           messages,
-          max_tokens: 500,
-          temperature: 0.8
-        })
-      });
+        max_tokens: 500,
+        temperature: 0.8
+      })
+    });
     }
 
     if (!response.ok) {
@@ -635,12 +635,33 @@ function formatMenuList() {
 
 // 챗봇 시작
 async function startChatbot() {
+  // 먼저 오늘의 급식 메뉴를 가져옴 (API에서 실제 메뉴 가져오기)
+  await fetchTodayMenu();
+  
+  // 저장된 대화 히스토리 불러오기 시도
+  const savedHistory = await loadMealChatHistory();
+  
+  if (savedHistory && savedHistory.length > 0) {
+    // 저장된 대화가 있으면 복원
+    console.log('📝 저장된 챗봇 대화 복원 중...');
+    chatHistory = savedHistory;
+    chatTurn = chatHistory.length;
+    
+    // 화면에 메시지 표시
+    chatMessages.innerHTML = '';
+    chatHistory.forEach(msg => {
+      const sender = msg.role === 'user' ? 'user' : 'bot';
+      addChatMessage(sender, msg.content);
+    });
+    
+    console.log('✅ 챗봇 대화 복원 완료');
+    return;
+  }
+  
+  // 저장된 대화가 없으면 새로 시작
   // 챗봇 상태 초기화
   chatTurn = 0;
   chatHistory = [];
-  
-  // 먼저 오늘의 급식 메뉴를 가져옴 (API에서 실제 메뉴 가져오기)
-  await fetchTodayMenu();
   
   // 메뉴가 없으면 안내 메시지
   if (todayMenu.length === 0) {
@@ -1526,9 +1547,9 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
     // Netlify Function 또는 직접 API 호출
     const functionUrl = getNetlifyFunctionUrl('openai-chat');
     const messages = [
-      {
-        role: 'system',
-        content: `당신은 영양사이자 건강 관리 전문가입니다. 학생들이 먹은 점심 식사의 영양을 분석하고 건강한 식습관을 위한 조언을 제공합니다.
+          {
+            role: 'system',
+            content: `당신은 영양사이자 건강 관리 전문가입니다. 학생들이 먹은 점심 식사의 영양을 분석하고 건강한 식습관을 위한 조언을 제공합니다.
 
 오늘 학생이 먹은 점심 식사:
 ${menuSummary}
@@ -1602,8 +1623,8 @@ ${excessiveFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 && ca
 - 알레르기 유발 음식을 추천한 후 피하라고 말하는 일관성 없는 답변 금지
 - 알레르기 정보를 확인하지 않고 간식을 추천하는 행위 금지
 - 이전 대화에서 언급한 알레르기 정보와 모순되는 답변 금지`
-      },
-      ...nutritionChatHistory
+          },
+          ...nutritionChatHistory
     ];
 
     let response;
@@ -1634,10 +1655,10 @@ ${excessiveFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 && ca
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',
           messages,
-          max_tokens: 500,
-          temperature: 0.8
-        })
-      });
+        max_tokens: 500,
+        temperature: 0.8
+      })
+    });
     }
 
     if (!response.ok) {
@@ -1702,8 +1723,27 @@ async function startNutritionChatbot(lunchData) {
   recordSection.classList.add('hidden');
   nutritionChatbotSection.classList.remove('hidden');
   
+  // 저장된 대화 히스토리 불러오기 시도
+  const savedHistory = await loadNutritionChatHistory();
+  
+  if (savedHistory && savedHistory.length > 0) {
+    // 저장된 대화가 있으면 복원
+    console.log('📝 저장된 영양 브리핑 챗봇 대화 복원 중...');
+    nutritionChatHistory = savedHistory;
+    
+    // 화면에 메시지 표시
+    nutritionChatMessages.innerHTML = '';
+    nutritionChatHistory.forEach(msg => {
+      const sender = msg.role === 'user' ? 'user' : 'bot';
+      addNutritionMessage(sender, msg.content);
+    });
+    
+    console.log('✅ 영양 브리핑 챗봇 대화 복원 완료');
+    return;
+  }
+  
   // 대화 히스토리가 없을 때만 초기 메시지 표시
-  if (nutritionChatHistory.length === 0) {
+  nutritionChatHistory = [];
   nutritionChatMessages.innerHTML = '';
   
   // 먹은 메뉴 정보 정리
@@ -2382,6 +2422,37 @@ async function saveSnackToFirebase(snackData) {
   }
 }
 
+// Firebase에서 급식 챗봇 대화 불러오기
+async function loadMealChatHistory() {
+  if (!db || !currentUser) {
+    return null;
+  }
+  
+  try {
+    const date = getTodayDate();
+    const chatHistoryRef = collection(db, 'chatHistory');
+    const q = query(
+      chatHistoryRef,
+      where('userId', '==', currentUser.uid),
+      where('date', '==', date),
+      where('type', '==', 'mealChat')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const docData = querySnapshot.docs[0].data();
+      if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
+        console.log('✅ 저장된 급식 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
+        return docData.messages;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('급식 챗봇 대화 불러오기 오류:', error);
+    return null;
+  }
+}
+
 // Firebase에 급식 챗봇 대화 저장
 async function saveMealChatHistory() {
   if (!db) {
@@ -2429,6 +2500,37 @@ async function saveMealChatHistory() {
     const docRef = await addDoc(collection(db, 'chatHistory'), chatData);
     console.log('급식 챗봇 대화 저장 완료:', docRef.id);
     return docRef.id;
+  }
+}
+
+// Firebase에서 영양 브리핑 챗봇 대화 불러오기
+async function loadNutritionChatHistory() {
+  if (!db || !currentUser) {
+    return null;
+  }
+  
+  try {
+    const date = getTodayDate();
+    const chatHistoryRef = collection(db, 'chatHistory');
+    const q = query(
+      chatHistoryRef,
+      where('userId', '==', currentUser.uid),
+      where('date', '==', date),
+      where('type', '==', 'nutritionChat')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const docData = querySnapshot.docs[0].data();
+      if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
+        console.log('✅ 저장된 영양 브리핑 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
+        return docData.messages;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('영양 브리핑 챗봇 대화 불러오기 오류:', error);
+    return null;
   }
 }
 
