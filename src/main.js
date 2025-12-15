@@ -647,8 +647,8 @@ async function startChatbot() {
     return;
   }
   
-  // 첫 번째 메시지: 인사 및 메뉴 안내
-  const greetingMessage = '안녕! 오늘 점심메뉴를 알려줄게.';
+  // 첫 번째 메시지: 자연스러운 인사
+  const greetingMessage = '안녕! 오늘도 밥체크야. 오늘 점심메뉴가 궁금하지?';
   addChatMessage('bot', greetingMessage);
   
   // 잠시 후 메뉴 표시 (API에서 가져온 실제 메뉴만 표시)
@@ -656,9 +656,9 @@ async function startChatbot() {
     const menuMessage = formatMenuList();
     addChatMessage('bot', menuMessage);
     
-    // 건강 상태 물어보기
+    // 건강 상태 물어보기 (더 자연스럽게)
     setTimeout(() => {
-      const healthQuestion = '오늘 건강은 어때? 컨디션이 어떤지 궁금해!';
+      const healthQuestion = '오늘 컨디션은 어때? 건강하게 잘 지내고 있어?';
       addChatMessage('bot', healthQuestion);
     
     // 초기 시스템 메시지 (ChatGPT가 컨텍스트를 이해할 수 있도록)
