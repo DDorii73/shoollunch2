@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>기록 관리 - 급식 관리</title>
+  <title>기록 관리 - 밥로그</title>
+  <link rel="icon" type="image/png" href="/밥로그.png">
   <link rel="stylesheet" href="/src/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <!-- 경로 자동 수정: /recordManagement로 접근하면 /recordManagement.html로 리다이렉트 (즉시 실행) -->
@@ -21,7 +22,10 @@
   <div class="student-container">
     <button id="home-btn" class="home-btn" onclick="window.location.href='/index.html'" title="홈으로">🏠</button>
     <header class="student-header">
-      <h1>📋 기록 관리</h1>
+      <div class="header-logo-container">
+        <img src="/밥로그.png" alt="밥로그" class="header-logo">
+        <h1>기록 관리</h1>
+      </div>
       <button id="back-btn" class="back-btn">← 돌아가기</button>
     </header>
 

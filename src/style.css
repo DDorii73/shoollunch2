@@ -85,6 +85,35 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
+/* 로고 컨테이너 */
+.logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.main-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  animation: logoFloat 3s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.logo-container h1 {
+  color: #2C2C2C;
+  margin: 0;
+  font-size: 2.2em;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
 .login-box h1 {
   color: #2C2C2C;
   margin-bottom: 12px;
@@ -230,8 +259,23 @@ body {
   border-bottom: 2px solid var(--border-color);
 }
 
+.header-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .student-header h1 {
   color: var(--primary-color);
+  margin: 0;
+  font-size: 1.5em;
 }
 
 .back-btn {
@@ -262,9 +306,23 @@ body {
   margin-bottom: 30px;
 }
 
+.chatbot-header-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.chatbot-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
 .chatbot-header h2 {
   color: var(--secondary-color);
-  margin-bottom: 10px;
+  margin: 0;
 }
 
 .chatbot-subtitle {
@@ -812,8 +870,23 @@ body {
   border-bottom: 2px solid var(--border-color);
 }
 
+.teacher-header .header-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.teacher-header .header-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .teacher-header h1 {
   color: var(--secondary-color);
+  margin: 0;
+  font-size: 1.5em;
 }
 
 .monitor-controls {
@@ -1452,10 +1525,33 @@ body {
     padding: 30px 20px;
   }
   
+  .main-logo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .logo-container h1 {
+    font-size: 1.8em;
+  }
+  
+  .header-logo {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .student-header h1,
+  .teacher-header h1 {
+    font-size: 1.3em;
+  }
+  
   .student-header, .teacher-header {
-    flex-direction: column;
-    gap: 15px;
-    align-items: flex-start;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .header-logo-container {
+    flex: 1;
   }
   
   .monitor-controls {
