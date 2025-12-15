@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ============================================
+    // 관리자 UID 설정
+    // ============================================
+    // 아래 함수에 관리자 UID를 추가하세요.
+    // 여러 관리자를 추가하려면 || (OR) 연산자로 연결하세요.
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.uid == '6yQL5PTLNkSqzP6CBUUoqbpt1M72' ||
+        request.auth.uid == 'another-admin-uid-here'
+        // 필요에 따라 더 많은 관리자 UID 추가 가능
+        // 예: || request.auth.uid == 'third-admin-uid'
+      );
+    }
+    
+    // ============================================
+    // 사용자 개인정보 (userRecords)
+    // ============================================
+    // 일반 사용자: 본인만 읽기/쓰기 가능
+    // 관리자: 모든 사용자 데이터 읽기/삭제 가능
+    match /userRecords/{userId} {
+      // 본인 데이터 읽기/쓰기
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // 관리자는 모든 사용자 데이터 읽기/삭제 가능
+      allow read, delete: if isAdmin();
+      
+      // 일별 기록 서브컬렉션
+      match /dailyRecords/{date} {
+        // 본인 데이터 읽기/쓰기
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        
+        // 관리자는 모든 데이터 읽기/삭제 가능
+        allow read, delete: if isAdmin();
+      }
+    }
+    
+    // ============================================
+    // 음식 기록 (foodRecords)
+    // ============================================
+    // 점심/간식 입력 정보
+    // 일반 사용자: 본인만 읽기/쓰기 가능
+    // 관리자: 모든 사용자 데이터 읽기/삭제 가능
+    match /foodRecords/{recordId} {
+      // 본인 데이터 읽기/쓰기
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // 관리자는 모든 데이터 읽기/삭제 가능
+      allow read, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // 챗봇 대화 기록 (chatHistory)
+    // ============================================
+    // 급식 챗봇, 영양 브리핑 챗봇 대화 기록
+    // 일반 사용자: 본인만 읽기/쓰기 가능
+    // 관리자: 모든 사용자 데이터 읽기/삭제 가능
+    match /chatHistory/{chatId} {
+      // 본인 데이터 읽기/쓰기
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // 관리자는 모든 데이터 읽기/삭제 가능
+      allow read, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // 기본 규칙: 나머지 모든 문서
+    // ============================================
+    // 인증된 사용자만 접근 가능 (보안을 위해 기본적으로 거부)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

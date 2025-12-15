@@ -2362,6 +2362,15 @@ async function loadMealChatHistory() {
     return null;
   } catch (error) {
     console.error('급식 챗봇 대화 불러오기 오류:', error);
+    
+    // 권한 오류인 경우 안내 메시지 표시
+    if (error.code === 'permission-denied') {
+      console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
+      console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
+      console.warn('   firestore.rules 파일을 Firebase Console에 배포해야 합니다.');
+    }
+    
+    // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
     return null;
   }
 }
@@ -2443,6 +2452,14 @@ async function loadNutritionChatHistory() {
     return null;
   } catch (error) {
     console.error('영양 브리핑 챗봇 대화 불러오기 오류:', error);
+    
+    // 권한 오류인 경우 안내 메시지 표시
+    if (error.code === 'permission-denied') {
+      console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
+      console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
+    }
+    
+    // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
     return null;
   }
 }
