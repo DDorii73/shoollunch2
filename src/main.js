@@ -61,17 +61,10 @@ function convertAllergyNumbersToNames(allergyNumbers) {
 }
 
 // Netlify Functions URL 헬퍼 함수
+// 항상 Netlify Functions를 통해 API 호출 (브라우저에서 직접 호출하지 않음)
 function getNetlifyFunctionUrl(functionName) {
-  // 개발 환경에서는 로컬 프록시 사용, 프로덕션에서는 Netlify Functions 사용
-  if (import.meta.env.DEV) {
-    // 개발 환경: vite.config.js의 proxy 사용
-    if (functionName === 'neis-api') {
-      return '/api/neis';
-    }
-    // 개발 환경에서는 직접 API 호출 (로컬에서는 CORS 문제 없음)
-    return null;
-  }
-  // 프로덕션 환경: Netlify Functions 사용
+  // 개발 환경과 프로덕션 환경 모두 Netlify Functions 사용
+  // 개발 환경에서는 로컬 Netlify Dev 서버 사용 (netlify dev 실행 시)
   return `/.netlify/functions/${functionName}`;
 }
 
@@ -113,22 +106,11 @@ async function fetchTodayMenu() {
     const dateStr = `${year}${month}${day}`;
     console.log('📅 조회할 날짜:', `${year}-${month}-${day}`, `(${dateStr})`);
     
-    // Netlify Function 또는 직접 API 호출
+    // 항상 Netlify Function을 통해 호출
     const functionUrl = getNetlifyFunctionUrl('neis-api');
-    let apiUrl;
-    let response;
-    
-    if (functionUrl) {
-      // Netlify Function 사용 (프로덕션)
-      apiUrl = `${functionUrl}?date=${dateStr}`;
-      console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
-      response = await fetch(apiUrl);
-    } else {
-      // 직접 API 호출 (개발 환경)
-      apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
-      console.log('🌐 NEIS API 호출 (직접):', apiUrl);
-      response = await fetch(apiUrl);
-    }
+    const apiUrl = `${functionUrl}?date=${dateStr}`;
+    console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
+    const response = await fetch(apiUrl);
     
     console.log('📡 API 응답 상태:', response.status, response.statusText);
     
@@ -518,39 +500,20 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
           ...chatHistory
     ];
 
-    if (functionUrl) {
-      // Netlify Function 사용 (프로덕션)
-      response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages,
-          model: 'gpt-3.5-turbo',
-        }),
-      });
-    } else {
-      // 직접 API 호출 (개발 환경)
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey || apiKey === 'your_openai_api_key_here') {
-        console.error('OpenAI API Key가 설정되지 않았습니다.');
-        return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다. API 키를 설정해주세요.';
-      }
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages,
+    // 항상 Netlify Function을 통해 호출
+    const functionUrl = getNetlifyFunctionUrl('openai-chat');
+    response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        model: 'gpt-3.5-turbo',
         max_tokens: 500,
         temperature: 0.8
-      })
+      }),
     });
-    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1366,59 +1329,19 @@ async function analyzeSnackImage(imageFile) {
     
     const prompt = '이 사진에 있는 간식(음식)을 분석해주세요. 간식의 이름을 정확하게 알려주세요. 만약 여러 개의 간식이 있다면 쉼표로 구분하여 모두 나열해주세요. 한국어로 간단하게 답변해주세요. 예: "초콜릿 쿠키, 사과, 우유" 또는 "빵 2개, 과자" 등. 간식 이름만 나열하고 다른 설명은 하지 마세요.';
     
-    // Netlify Function 또는 직접 API 호출
+    // 항상 Netlify Function을 통해 호출
     const functionUrl = getNetlifyFunctionUrl('openai-vision');
-    let response;
-    
-    if (functionUrl) {
-      // Netlify Function 사용 (프로덕션)
-      response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          base64Image,
-          prompt,
-          model: 'gpt-4o-mini',
-        }),
-      });
-    } else {
-      // 직접 API 호출 (개발 환경)
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey || apiKey === 'your_openai_api_key_here') {
-        return '죄송합니다. AI 분석 서비스가 준비되지 않았습니다.';
-      }
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: prompt
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: base64Image
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 200,
-          temperature: 0.3
-        })
-      });
-    }
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64Image,
+        prompt,
+        model: 'gpt-4o-mini',
+      }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1627,39 +1550,20 @@ ${excessiveFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 && ca
           ...nutritionChatHistory
     ];
 
-    let response;
-    if (functionUrl) {
-      // Netlify Function 사용 (프로덕션)
-      response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages,
-          model: 'gpt-3.5-turbo',
-        }),
-      });
-    } else {
-      // 직접 API 호출 (개발 환경)
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey || apiKey === 'your_openai_api_key_here') {
-        return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다.';
-      }
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages,
+    // 항상 Netlify Function을 통해 호출
+    const functionUrl = getNetlifyFunctionUrl('openai-chat');
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        model: 'gpt-3.5-turbo',
         max_tokens: 500,
         temperature: 0.8
-      })
+      }),
     });
-    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

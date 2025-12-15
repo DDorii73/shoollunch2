@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:netlify": "netlify dev",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -12,6 +13,7 @@
     "firebase": "^10.7.1"
   },
   "devDependencies": {
+    "netlify-cli": "^23.12.3",
     "vite": "^7.2.4"
   }
 }

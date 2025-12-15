@@ -27,7 +27,7 @@ exports.handler = async (event, context) => {
 
   try {
     const { base64Image, prompt, model = 'gpt-4o-mini' } = JSON.parse(event.body);
-    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
       return {

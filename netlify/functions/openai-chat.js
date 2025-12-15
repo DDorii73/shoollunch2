@@ -26,8 +26,8 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { messages, model = 'gpt-3.5-turbo' } = JSON.parse(event.body);
-    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    const { messages, model = 'gpt-3.5-turbo', max_tokens, temperature } = JSON.parse(event.body);
+    const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
       return {
@@ -37,16 +37,26 @@ exports.handler = async (event, context) => {
       };
     }
 
+    const requestBody = {
+      model,
+      messages,
+    };
+
+    // 선택적 파라미터 추가
+    if (max_tokens !== undefined) {
+      requestBody.max_tokens = max_tokens;
+    }
+    if (temperature !== undefined) {
+      requestBody.temperature = temperature;
+    }
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

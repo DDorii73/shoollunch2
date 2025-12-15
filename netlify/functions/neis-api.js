@@ -27,9 +27,9 @@ exports.handler = async (event, context) => {
 
   try {
     const { date } = event.queryStringParameters || {};
-    const apiKey = process.env.VITE_NEIS_API_KEY;
-    const atptOfcdcScCode = process.env.VITE_NEIS_ATPT_OFCDC_SC_CODE;
-    const sdSchulCode = process.env.VITE_NEIS_SD_SCHUL_CODE;
+    const apiKey = process.env.NEIS_API_KEY;
+    const atptOfcdcScCode = process.env.NEIS_ATPT_OFCDC_SC_CODE;
+    const sdSchulCode = process.env.NEIS_SD_SCHUL_CODE;
 
     if (!apiKey || !atptOfcdcScCode || !sdSchulCode) {
       return {
