@@ -1383,30 +1383,33 @@ body {
 
 .nav-btn {
   width: 100%;
-  padding: 20px 24px;
+  padding: 24px 28px;
   border: none;
   border-radius: 12px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   text-decoration: none;
   color: white;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  letter-spacing: -0.3px;
+  letter-spacing: 0.2px;
+  line-height: 1.4;
 }
 
 .nav-btn span:first-child {
-  font-size: 24px;
+  font-size: 28px;
+  line-height: 1;
 }
 
 .nav-btn span:last-child {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .nav-btn.food-record {
@@ -1577,8 +1580,16 @@ body {
   }
   
   .nav-btn {
-    padding: 15px 20px;
-    font-size: 16px;
+    padding: 20px 24px;
+    font-size: 18px;
+  }
+  
+  .nav-btn span:first-child {
+    font-size: 26px;
+  }
+  
+  .nav-btn span:last-child {
+    font-size: 18px;
   }
   
   .bottom-nav {
