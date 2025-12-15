@@ -516,7 +516,7 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
     const functionUrl = getNetlifyFunctionUrl('openai-chat');
     console.log('🤖 OpenAI API 호출 (Netlify Function):', functionUrl);
     
-    response = await fetch(functionUrl, {
+    const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
