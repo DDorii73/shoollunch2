@@ -408,6 +408,14 @@ body {
   animation: characterBounce 2s ease-in-out infinite;
 }
 
+.chatbot-student {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  margin-left: 8px;
+  opacity: 0.9;
+}
+
 @keyframes characterBounce {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-5px); }
@@ -654,6 +662,24 @@ body {
 }
 
 /* 기록 섹션 */
+.record-header-image {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px 0;
+}
+
+.record-student-image {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  animation: studentFloat 3s ease-in-out infinite;
+}
+
+@keyframes studentFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
 .record-section {
   background: var(--card-bg);
   border-radius: 20px;
@@ -668,6 +694,16 @@ body {
   .record-section {
     padding: 20px 16px;
     border-radius: 16px;
+  }
+  
+  .record-student-image {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .record-header-image {
+    margin-bottom: 20px;
+    padding: 16px 0;
   }
 }
 
@@ -1674,6 +1710,8 @@ body {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.3px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .nav-btn.food-record {
@@ -1860,6 +1898,12 @@ body {
   .chatbot-character {
     width: 40px;
     height: 40px;
+  }
+  
+  .chatbot-student {
+    width: 28px;
+    height: 28px;
+    margin-left: 6px;
   }
   
   .features {
