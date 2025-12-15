@@ -66,7 +66,10 @@
         <!-- 점심 급식 섹션 -->
         <div class="meal-record">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3 style="margin: 0;">🍱 점심 급식</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h3 style="margin: 0;">🍱 점심 급식</h3>
+              <button id="skip-lunch-btn" class="skip-btn" title="안먹었어요">안먹었어요</button>
+            </div>
             <button id="new-lunch-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
           </div>
           <p class="meal-description">오늘 제공된 메뉴 중 먹은 것을 클릭하거나 선택하고 횟수를 입력하세요.</p>
@@ -94,7 +97,10 @@
         <div class="meal-record">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 style="margin: 0;">🍪 방과후 간식</h3>
-            <button id="new-snack-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button id="skip-snack-btn" class="skip-btn" title="참았어요">참았어요</button>
+              <button id="new-snack-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
+            </div>
           </div>
           <p class="meal-description">먹은 간식을 입력하세요.</p>
           

@@ -472,7 +472,7 @@ body {
 .message {
   display: flex;
   align-items: flex-end;
-  gap: 0;
+  gap: 10px;
   max-width: 75%;
   animation: messageSlideIn 0.3s ease-out;
   margin-bottom: 12px;
@@ -1087,6 +1087,36 @@ body {
   background: var(--warm-beige);
   border-color: var(--primary-color);
   transform: scale(1.1);
+}
+
+.skip-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.skip-btn:hover {
+  background: var(--blue-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.skip-btn.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.skip-btn.active:hover {
+  background: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 
 .add-btn {

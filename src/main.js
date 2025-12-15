@@ -366,6 +366,8 @@ let chatHistory = [];
 let lunchRecords = {}; // { '밥': 1, '된장찌개': 2 } 형식
 let snackList = [];
 let currentUser = null; // 현재 로그인한 사용자
+let skippedLunch = false; // 점심을 안 먹었는지 여부
+let skippedSnack = false; // 간식을 참았는지 여부
 let userBMR = null; // 사용자의 기초대사량
 let userBMI = null; // 사용자의 BMI
 let userHeight = null; // 사용자의 키 (cm)
@@ -405,6 +407,8 @@ const nutritionChatMessages = document.getElementById('nutrition-chat-messages')
 const nutritionChatInput = document.getElementById('nutrition-chat-input');
 const nutritionSendBtn = document.getElementById('nutrition-send-btn');
 const closeNutritionBtn = document.getElementById('close-nutrition-btn');
+const skipLunchBtn = document.getElementById('skip-lunch-btn');
+const skipSnackBtn = document.getElementById('skip-snack-btn');
 
 // 영양 브리핑 챗봇 상태
 let nutritionChatHistory = [];
@@ -575,6 +579,18 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 function addChatMessage(sender, message) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}`;
+  
+  // bot 메시지일 때 프로필 이미지 추가
+  if (sender === 'bot') {
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = 'message-avatar';
+    const avatarImg = document.createElement('img');
+    avatarImg.src = '/밥체크.png';
+    avatarImg.alt = '밥체크';
+    avatarImg.className = 'bot-avatar';
+    avatarDiv.appendChild(avatarImg);
+    messageDiv.appendChild(avatarDiv);
+  }
   
   const messageContent = document.createElement('div');
   messageContent.className = 'message-content';
@@ -851,6 +867,11 @@ async function initializeRecordSection() {
   if (todayMenu && todayMenu.length > 0) {
     initConsumptionChart();
   }
+  
+  // 스킵 상태 초기화
+  skippedLunch = false;
+  skippedSnack = false;
+  updateSkipButtons();
 }
 
 // 점심 메뉴 리스트 렌더링
@@ -1365,6 +1386,53 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
   });
 
   try {
+    // 안먹었어요가 체크된 경우
+    if (lunchData.skipped) {
+      const messages = [
+        {
+          role: 'system',
+          content: `당신은 영양사이자 건강 관리 전문가입니다. 학생이 오늘 점심을 안 먹었을 때 균형잡힌 식사를 하도록 조언을 제공합니다.
+
+중요 지침:
+1. 모든 답변은 짧은 문장으로 3문장 이내로 작성해주세요. 간결하고 명확하게 답변하세요.
+2. 점심을 안 먹은 것에 대해 걱정하지 않도록 따뜻하게 대하세요.
+3. 균형잡힌 식사를 하도록 조언해주세요.
+4. 긍정적이고 격려하는 톤으로 답변하세요.
+5. 학생의 건강을 위한 따뜻한 조언을 해주세요.`
+        },
+        ...nutritionChatHistory
+      ];
+
+      const functionUrl = getNetlifyFunctionUrl('openai-chat');
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          model: 'gpt-3.5-turbo',
+          max_tokens: 500,
+          temperature: 0.8
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API 호출 실패: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
+      }
+
+      const data = await response.json();
+      const botMessage = data.choices[0].message.content;
+      
+      nutritionChatHistory.push({
+        role: 'assistant',
+        content: botMessage
+      });
+
+      return botMessage;
+    }
+    
     // 먹은 메뉴 정보 정리
     const eatenMenus = lunchData.menuItems.filter(item => item.count > 0);
     const menuSummary = eatenMenus.map(item => 
@@ -1590,6 +1658,27 @@ async function startNutritionChatbot(lunchData) {
   nutritionChatHistory = [];
   nutritionChatMessages.innerHTML = '';
   
+  // 안먹었어요가 체크된 경우
+  if (lunchData.skipped) {
+    const greetingMessage = '안녕! 오늘 점심을 안 드셨군요.';
+    addNutritionMessage('bot', greetingMessage);
+    
+    // 자동으로 균형잡힌 식사 조언 시작
+    setTimeout(async () => {
+      addNutritionMessage('bot', '영양 분석 중...');
+      
+      const advicePrompt = '학생이 오늘 점심을 안 먹었습니다. 균형잡힌 식사를 하도록 조언해주세요. 건강한 식습관에 대한 따뜻한 조언을 제공해주세요.';
+      const advice = await callNutritionChatGPTAPI(advicePrompt, lunchData);
+      
+      // "영양 분석 중..." 메시지 제거하고 실제 조언 표시
+      if (nutritionChatMessages.lastChild) {
+        nutritionChatMessages.removeChild(nutritionChatMessages.lastChild);
+      }
+      addNutritionMessage('bot', advice);
+    }, 1000);
+    return;
+  }
+  
   // 먹은 메뉴 정보 정리
   const eatenMenus = lunchData.menuItems.filter(item => item.count > 0);
   const menuSummary = eatenMenus.map(item => 
@@ -1657,6 +1746,21 @@ async function submitLunch() {
   if (!currentUser) {
     alert('⚠️ 로그인이 필요합니다.\n메인 페이지에서 Google 로그인을 먼저 해주세요.');
     window.location.href = '/index.html';
+    return;
+  }
+  
+  // 안먹었어요가 체크된 경우
+  if (skippedLunch) {
+    // Firebase에 기록하지 않고 영양 브리핑으로 이동
+    const lunchData = {
+      records: {},
+      totalCalories: 0,
+      baseCalories: totalCalories,
+      menuItems: [],
+      skipped: true
+    };
+    
+    startNutritionChatbot(lunchData);
     return;
   }
   
@@ -1762,6 +1866,12 @@ async function submitSnack() {
   if (!currentUser) {
     alert('⚠️ 로그인이 필요합니다.\n메인 페이지에서 Google 로그인을 먼저 해주세요.');
     window.location.href = '/index.html';
+    return;
+  }
+  
+  // 참았어요가 체크된 경우 Firebase에 기록하지 않음
+  if (skippedSnack) {
+    alert('간식을 참으셨군요! 잘하셨어요! 👍');
     return;
   }
   
@@ -1962,6 +2072,64 @@ submitLunchBtn.addEventListener('click', async () => {
 submitSnackBtn.addEventListener('click', async () => {
   await submitSnack();
 });
+
+// 안먹었어요 버튼 클릭 이벤트
+if (skipLunchBtn) {
+  skipLunchBtn.addEventListener('click', () => {
+    skippedLunch = !skippedLunch;
+    updateSkipButtons();
+    
+    if (skippedLunch) {
+      // 모든 메뉴 선택 해제
+      lunchRecords = {};
+      renderLunchMenuList();
+      setupMenuControls();
+      updateTotalCalories();
+      if (consumptionChart) {
+        consumptionChart.destroy();
+        consumptionChart = null;
+      }
+    }
+  });
+}
+
+// 참았어요 버튼 클릭 이벤트
+if (skipSnackBtn) {
+  skipSnackBtn.addEventListener('click', () => {
+    skippedSnack = !skippedSnack;
+    updateSkipButtons();
+    
+    if (skippedSnack) {
+      // 간식 목록 초기화
+      snackList = [];
+      updateSnackList();
+      snackInput.value = '';
+    }
+  });
+}
+
+// 스킵 버튼 스타일 업데이트
+function updateSkipButtons() {
+  if (skipLunchBtn) {
+    if (skippedLunch) {
+      skipLunchBtn.classList.add('active');
+      skipLunchBtn.textContent = '✓ 안먹었어요';
+    } else {
+      skipLunchBtn.classList.remove('active');
+      skipLunchBtn.textContent = '안먹었어요';
+    }
+  }
+  
+  if (skipSnackBtn) {
+    if (skippedSnack) {
+      skipSnackBtn.classList.add('active');
+      skipSnackBtn.textContent = '✓ 참았어요';
+    } else {
+      skipSnackBtn.classList.remove('active');
+      skipSnackBtn.textContent = '참았어요';
+    }
+  }
+}
 
 // 새로입력하기 버튼 이벤트
 if (newLunchBtn) {
