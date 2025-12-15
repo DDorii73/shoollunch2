@@ -776,16 +776,6 @@ async function handleChatbotResponse(userMessage) {
   const botResponse = await callChatGPTAPI(userMessage);
   addChatMessage('bot', botResponse);
   
-  // 대화 히스토리 저장 (봇 응답 후)
-  if (currentUser && chatHistory.length > 0) {
-    try {
-      await saveMealChatHistory();
-      console.log('✅ 급식 챗봇 대화 저장 완료');
-    } catch (error) {
-      console.error('❌ 급식 챗봇 대화 저장 오류:', error);
-    }
-  }
-  
   // 컨디션 질문에 대한 답변 후 알레르기 정보 자동 안내
   if (isHealthResponse && isHealthRelated && userAllergies && userAllergies.length > 0) {
     setTimeout(async () => {
@@ -801,15 +791,6 @@ async function handleChatbotResponse(userMessage) {
           role: 'assistant',
           content: allergyMessage
         });
-        
-        // 저장
-        if (currentUser && chatHistory.length > 0) {
-          try {
-            await saveMealChatHistory();
-          } catch (error) {
-            console.error('❌ 알레르기 정보 저장 오류:', error);
-          }
-        }
       } else {
         // 알레르기 위험 메뉴가 없는 경우
         const safeMessage = `${currentUser?.displayName || '너'}는 ${userAllergies.join(', ')} 알레르기가 있지만, 오늘 급식에는 해당 알레르기 성분이 포함된 메뉴가 없어서 안전하게 먹을 수 있어!`;
@@ -820,15 +801,6 @@ async function handleChatbotResponse(userMessage) {
           role: 'assistant',
           content: safeMessage
         });
-        
-        // 저장
-        if (currentUser && chatHistory.length > 0) {
-          try {
-            await saveMealChatHistory();
-          } catch (error) {
-            console.error('❌ 알레르기 정보 저장 오류:', error);
-          }
-        }
       }
     }, 1500);
   }
@@ -849,16 +821,6 @@ async function handleChatbotResponse(userMessage) {
 
 // 대화 끝내기
 async function endChatbot() {
-  // 급식 챗봇 대화 저장
-  if (chatHistory.length > 0 && currentUser) {
-    try {
-      await saveMealChatHistory();
-      console.log('✅ 급식 챗봇 대화가 저장되었습니다.');
-    } catch (error) {
-      console.error('❌ 급식 챗봇 대화 저장 오류:', error);
-    }
-  }
-  
   chatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
   initializeRecordSection();
@@ -1679,16 +1641,6 @@ async function startNutritionChatbot(lunchData) {
       }
     addNutritionMessage('bot', analysis);
     
-    // 초기 영양 분석 후 대화 저장
-    if (currentUser && nutritionChatHistory.length > 0) {
-      try {
-        await saveNutritionChatHistory();
-        console.log('✅ 영양 브리핑 챗봇 대화 저장 완료 (초기 분석 포함)');
-      } catch (error) {
-        console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
-      }
-    }
-    
     // 간식 추천 질문이 포함되어 있는지 확인하고, 없으면 추가
     if (!analysis.includes('간식을 추천') && !analysis.includes('간식 추천')) {
       setTimeout(() => {
@@ -2105,16 +2057,6 @@ nutritionSendBtn.addEventListener('click', async () => {
   const botResponse = await callNutritionChatGPTAPI(finalMessage, lunchData);
   addNutritionMessage('bot', botResponse);
   
-  // 영양 브리핑 챗봇 대화 히스토리 저장 (봇 응답 후)
-  if (currentUser && nutritionChatHistory.length > 0) {
-    try {
-      await saveNutritionChatHistory();
-      console.log('✅ 영양 브리핑 챗봇 대화 저장 완료');
-    } catch (error) {
-      console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
-    }
-  }
-  
   // 간식 추천 질문에 긍정적으로 답한 경우, 간식 추천 후 자동으로 운동 추천 메시지 추가
   const lowerResponse = botResponse.toLowerCase();
   
@@ -2136,16 +2078,6 @@ nutritionSendBtn.addEventListener('click', async () => {
         const exercisePrompt = '점심에 먹은 음식의 양과 영양소를 고려하여 적절한 운동을 안내해주세요. 구체적인 운동 종류와 시간을 제안해주세요.';
         const exerciseResponse = await callNutritionChatGPTAPI(exercisePrompt, lunchData);
         addNutritionMessage('bot', exerciseResponse);
-        
-        // 운동 추천 응답 후에도 대화 저장
-        if (currentUser && nutritionChatHistory.length > 0) {
-          try {
-            await saveNutritionChatHistory();
-            console.log('✅ 영양 브리핑 챗봇 대화 저장 완료 (운동 추천 포함)');
-          } catch (error) {
-            console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
-          }
-        }
       }
     }, 2000);
   }
@@ -2160,16 +2092,6 @@ nutritionChatInput.addEventListener('keypress', async (e) => {
 
 // 영양 브리핑 챗봇 닫기
 closeNutritionBtn.addEventListener('click', async () => {
-  // 영양 브리핑 챗봇 대화 저장
-  if (nutritionChatHistory.length > 0 && currentUser) {
-    try {
-      await saveNutritionChatHistory();
-      console.log('✅ 영양 브리핑 챗봇 대화가 저장되었습니다.');
-    } catch (error) {
-      console.error('❌ 영양 브리핑 챗봇 대화 저장 오류:', error);
-    }
-  }
-  
   nutritionChatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
   // 기록 섹션 초기화 (메뉴가 없을 경우를 대비)
@@ -2474,28 +2396,7 @@ async function saveNutritionChatHistory() {
   }
 }
 
-// 페이지를 떠날 때 대화 자동 저장
-window.addEventListener('beforeunload', async () => {
-  if (currentUser) {
-    // 급식 챗봇 대화 저장
-    if (chatHistory && chatHistory.length > 0) {
-      try {
-        await saveMealChatHistory();
-      } catch (error) {
-        console.error('페이지 종료 시 급식 챗봇 대화 저장 오류:', error);
-      }
-    }
-    
-    // 영양 브리핑 챗봇 대화 저장
-    if (nutritionChatHistory && nutritionChatHistory.length > 0) {
-      try {
-        await saveNutritionChatHistory();
-      } catch (error) {
-        console.error('페이지 종료 시 영양 브리핑 챗봇 대화 저장 오류:', error);
-      }
-    }
-  }
-});
+// 페이지를 떠날 때 대화 저장하지 않음 (대화 기록 기능 제거)
 
 // 사용자 인증 상태 확인
 if (auth) {
