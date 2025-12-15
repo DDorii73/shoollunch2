@@ -32,10 +32,18 @@ exports.handler = async (event, context) => {
     const sdSchulCode = process.env.NEIS_SD_SCHUL_CODE;
 
     if (!apiKey || !atptOfcdcScCode || !sdSchulCode) {
+      console.error('NEIS API 환경 변수 누락:', {
+        hasApiKey: !!apiKey,
+        hasAtptOfcdcScCode: !!atptOfcdcScCode,
+        hasSdSchulCode: !!sdSchulCode
+      });
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ error: 'NEIS API configuration missing' }),
+        body: JSON.stringify({ 
+          error: 'NEIS API configuration missing',
+          details: '환경 변수가 설정되지 않았습니다. Netlify 대시보드에서 NEIS_API_KEY, NEIS_ATPT_OFCDC_SC_CODE, NEIS_SD_SCHUL_CODE를 설정해주세요.'
+        }),
       };
     }
 

@@ -71,32 +71,6 @@ function getNetlifyFunctionUrl(functionName) {
 // 오늘의 급식 메뉴 가져오기
 async function fetchTodayMenu() {
   const today = new Date();
-  const apiKey = import.meta.env.VITE_NEIS_API_KEY;
-  const atptOfcdcScCode = import.meta.env.VITE_NEIS_ATPT_OFCDC_SC_CODE;
-  const sdSchulCode = import.meta.env.VITE_NEIS_SD_SCHUL_CODE;
-  
-  // 디버깅: 환경변수 확인
-  console.log('🔍 NEIS API 환경변수 확인:');
-  console.log('  API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : '❌ 없음');
-  console.log('  교육청 코드:', atptOfcdcScCode || '❌ 없음');
-  console.log('  학교 코드:', sdSchulCode || '❌ 없음');
-  
-  if (!apiKey || !atptOfcdcScCode || !sdSchulCode) {
-    console.warn('⚠️ NEIS API 설정이 없어 기본 메뉴를 사용합니다.');
-    console.warn('💡 .env 파일에 다음 값들이 설정되어 있는지 확인하세요:');
-    console.warn('   - VITE_NEIS_API_KEY');
-    console.warn('   - VITE_NEIS_ATPT_OFCDC_SC_CODE');
-    console.warn('   - VITE_NEIS_SD_SCHUL_CODE');
-    // 기본 메뉴로 폴백
-    todayMenu = [
-      { name: '밥', calories: foodCalories['밥'] || 210 },
-      { name: '된장찌개', calories: foodCalories['된장찌개'] || 120 },
-      { name: '김치', calories: foodCalories['김치'] || 15 },
-      { name: '계란후라이', calories: foodCalories['계란후라이'] || 90 },
-      { name: '시금치나물', calories: foodCalories['시금치나물'] || 30 }
-    ];
-    return;
-  }
   
   try {
     // 오늘 날짜를 YYYYMMDD 형식으로 변환
@@ -115,9 +89,29 @@ async function fetchTodayMenu() {
     console.log('📡 API 응답 상태:', response.status, response.statusText);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ API 호출 실패:', errorText);
-      throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
+      // 에러 응답 파싱 시도
+      let errorMessage = `HTTP 오류: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      }
+      console.error('❌ API 호출 실패:', errorMessage);
+      
+      // Function에서 환경 변수 오류인 경우 기본 메뉴로 폴백
+      if (response.status === 500 && errorMessage.includes('configuration missing')) {
+        console.warn('⚠️ Netlify Function에 환경 변수가 설정되지 않았습니다. 기본 메뉴를 사용합니다.');
+        todayMenu = getDefaultMenu();
+        return;
+      }
+      
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
@@ -405,10 +399,6 @@ async function callChatGPTAPI(userMessage) {
   const dangerousMenus = userAllergies && userAllergies.length > 0 ? checkAllergyInMenu() : [];
 
   try {
-    // Netlify Function 또는 직접 API 호출
-    const functionUrl = getNetlifyFunctionUrl('openai-chat');
-    let response;
-    
     const messages = [
           {
             role: 'system',
@@ -1467,8 +1457,6 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
       return isCarbRich && item.count >= 2;
     });
     
-    // Netlify Function 또는 직접 API 호출
-    const functionUrl = getNetlifyFunctionUrl('openai-chat');
     const messages = [
           {
             role: 'system',
@@ -1719,14 +1707,6 @@ async function startNutritionChatbot(lunchData) {
       }, 500);
     }
   }, 1000);
-  } else {
-    // 기존 대화가 있으면 히스토리에서 메시지 복원
-    nutritionChatMessages.innerHTML = '';
-    nutritionChatHistory.forEach(msg => {
-      const sender = msg.role === 'user' ? 'user' : 'bot';
-      addNutritionMessage(sender, msg.content);
-    });
-  }
 }
 
 // 점심 제출
