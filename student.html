@@ -6,6 +6,17 @@
   <title>학생 활동 - 급식 관리</title>
   <link rel="stylesheet" href="/src/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- 경로 자동 수정: /student로 접근하면 /student.html로 리다이렉트 (즉시 실행) -->
+  <script>
+    (function() {
+      var pathname = window.location.pathname;
+      // /student 또는 /student/로 시작하는 경우 (쿼리 파라미터, 해시 무시)
+      if (pathname === '/student' || pathname === '/student/' || pathname.startsWith('/student/')) {
+        var newUrl = '/student.html' + window.location.search + window.location.hash;
+        window.location.replace(newUrl);
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="student-container">
@@ -131,13 +142,6 @@
     </a>
   </nav>
   
-  <!-- 경로 자동 수정: /student로 접근하면 /student.html로 리다이렉트 -->
-  <script>
-    // 현재 경로가 /student이고 .html이 없으면 자동으로 추가
-    if (window.location.pathname === '/student' || window.location.pathname === '/student/') {
-      window.location.replace('/student.html');
-    }
-  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

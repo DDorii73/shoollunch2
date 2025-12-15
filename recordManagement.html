@@ -6,6 +6,16 @@
   <title>기록 관리 - 급식 관리</title>
   <link rel="stylesheet" href="/src/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- 경로 자동 수정: /recordManagement로 접근하면 /recordManagement.html로 리다이렉트 (즉시 실행) -->
+  <script>
+    (function() {
+      var pathname = window.location.pathname;
+      if (pathname === '/recordManagement' || pathname === '/recordManagement/' || pathname.startsWith('/recordManagement/')) {
+        var newUrl = '/recordManagement.html' + window.location.search + window.location.hash;
+        window.location.replace(newUrl);
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="student-container">

@@ -1,0 +1,19 @@
+# Netlify 리다이렉트 규칙
+# 이 파일은 빌드 시 dist 폴더로 복사됩니다
+
+# Functions 경로
+/.netlify/functions/* /.netlify/functions/:splat 200
+
+# 특정 페이지 리다이렉트 (HTML 파일 자동 추가)
+/student /student.html 200
+/student/* /student.html 200
+
+/recordManagement /recordManagement.html 200
+/recordManagement/* /recordManagement.html 200
+
+/teacherMonitor /teacherMonitor.html 200
+/teacherMonitor/* /teacherMonitor.html 200
+
+# SPA 라우팅: 나머지 모든 경로는 index.html로
+/* /index.html 200
+

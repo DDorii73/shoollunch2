@@ -14,6 +14,8 @@
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
 # SPA 라우팅을 위한 리다이렉트 규칙
+# 중요: 더 구체적인 경로를 먼저 배치해야 함
+
 # Functions 경로는 제외하고 나머지만 index.html로 리다이렉트
 [[redirects]]
   from = "/.netlify/functions/*"
@@ -26,22 +28,38 @@
   from = "/student"
   to = "/student.html"
   status = 200
-  force = true
+
+# /student/로 접근해도 /student.html로 리다이렉트
+[[redirects]]
+  from = "/student/*"
+  to = "/student.html"
+  status = 200
 
 # /recordManagement로 접근하면 /recordManagement.html로 리다이렉트
 [[redirects]]
   from = "/recordManagement"
   to = "/recordManagement.html"
   status = 200
-  force = true
+
+# /recordManagement/로 접근해도 /recordManagement.html로 리다이렉트
+[[redirects]]
+  from = "/recordManagement/*"
+  to = "/recordManagement.html"
+  status = 200
 
 # /teacherMonitor로 접근하면 /teacherMonitor.html로 리다이렉트
 [[redirects]]
   from = "/teacherMonitor"
   to = "/teacherMonitor.html"
   status = 200
-  force = true
 
+# /teacherMonitor/로 접근해도 /teacherMonitor.html로 리다이렉트
+[[redirects]]
+  from = "/teacherMonitor/*"
+  to = "/teacherMonitor.html"
+  status = 200
+
+# 나머지 모든 경로는 index.html로 리다이렉트 (SPA 라우팅)
 [[redirects]]
   from = "/*"
   to = "/index.html"
