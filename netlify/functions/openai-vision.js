@@ -29,14 +29,24 @@ exports.handler = async (event, context) => {
     const { base64Image, prompt, model = 'gpt-4o-mini' } = JSON.parse(event.body);
     const apiKey = process.env.OPENAI_API_KEY;
 
+    console.log('🔍 OpenAI Vision API 환경 변수 확인:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey ? apiKey.length : 0
+    });
+
     if (!apiKey) {
+      console.error('❌ OpenAI API 키가 설정되지 않았습니다.');
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ error: 'OpenAI API key not configured' }),
+        body: JSON.stringify({ 
+          error: 'OpenAI API key not configured',
+          details: 'OPENAI_API_KEY 환경 변수가 설정되지 않았습니다. Netlify 대시보드에서 설정해주세요.'
+        }),
       };
     }
 
+    console.log('🌐 OpenAI Vision API 호출 시작');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -69,27 +79,34 @@ exports.handler = async (event, context) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('❌ OpenAI Vision API 호출 실패:', response.status, errorData);
       return {
         statusCode: response.status,
         headers,
         body: JSON.stringify({ 
-          error: errorData.error?.message || 'OpenAI API error' 
+          error: errorData.error?.message || 'OpenAI API error',
+          details: errorData.error || 'OpenAI Vision API 호출에 실패했습니다.'
         }),
       };
     }
 
     const data = await response.json();
+    console.log('✅ OpenAI Vision API 호출 성공');
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify(data),
     };
   } catch (error) {
-    console.error('OpenAI Vision API 호출 오류:', error);
+    console.error('❌ OpenAI Vision API 호출 오류:', error);
+    console.error('에러 스택:', error.stack);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ 
+        error: error.message || 'Unknown error',
+        details: error.stack || '알 수 없는 오류가 발생했습니다.'
+      }),
     };
   }
 };

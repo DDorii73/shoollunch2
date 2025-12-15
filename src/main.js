@@ -84,17 +84,32 @@ async function fetchTodayMenu() {
     const functionUrl = getNetlifyFunctionUrl('neis-api');
     const apiUrl = `${functionUrl}?date=${dateStr}`;
     console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
-    const response = await fetch(apiUrl);
+    console.log('🔍 현재 URL:', window.location.href);
+    console.log('🔍 Function URL:', functionUrl);
+    
+    const response = await fetch(apiUrl).catch(error => {
+      console.error('❌ Fetch 오류:', error);
+      throw new Error(`네트워크 오류: ${error.message}`);
+    });
     
     console.log('📡 API 응답 상태:', response.status, response.statusText);
+    console.log('📡 응답 URL:', response.url);
     
     if (!response.ok) {
       // 에러 응답 파싱 시도
       let errorMessage = `HTTP 오류: ${response.status} ${response.statusText}`;
+      let errorDetails = '';
       try {
         const errorData = await response.json();
+        console.error('❌ API 에러 응답:', errorData);
         if (errorData.error) {
           errorMessage = errorData.error;
+        }
+        if (errorData.details) {
+          errorDetails = errorData.details;
+        }
+        if (errorData.missingVariables) {
+          errorDetails = `누락된 환경 변수: ${errorData.missingVariables.join(', ')}`;
         }
       } catch (e) {
         const errorText = await response.text();
@@ -103,15 +118,22 @@ async function fetchTodayMenu() {
         }
       }
       console.error('❌ API 호출 실패:', errorMessage);
+      if (errorDetails) {
+        console.error('❌ 상세 오류:', errorDetails);
+      }
       
       // Function에서 환경 변수 오류인 경우 기본 메뉴로 폴백
-      if (response.status === 500 && errorMessage.includes('configuration missing')) {
+      if (response.status === 500 && (errorMessage.includes('configuration missing') || errorMessage.includes('환경 변수'))) {
         console.warn('⚠️ Netlify Function에 환경 변수가 설정되지 않았습니다. 기본 메뉴를 사용합니다.');
+        console.warn('💡 Netlify 대시보드에서 다음 환경 변수를 설정해주세요:');
+        console.warn('   - NEIS_API_KEY');
+        console.warn('   - NEIS_ATPT_OFCDC_SC_CODE');
+        console.warn('   - NEIS_SD_SCHUL_CODE');
         todayMenu = getDefaultMenu();
         return;
       }
       
-      throw new Error(errorMessage);
+      throw new Error(errorMessage + (errorDetails ? `\n${errorDetails}` : ''));
     }
     
     const data = await response.json();
@@ -492,6 +514,8 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 
     // 항상 Netlify Function을 통해 호출
     const functionUrl = getNetlifyFunctionUrl('openai-chat');
+    console.log('🤖 OpenAI API 호출 (Netlify Function):', functionUrl);
+    
     response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
@@ -503,7 +527,12 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
         max_tokens: 500,
         temperature: 0.8
       }),
+    }).catch(error => {
+      console.error('❌ OpenAI API Fetch 오류:', error);
+      throw new Error(`네트워크 오류: ${error.message}`);
     });
+    
+    console.log('📡 OpenAI API 응답 상태:', response.status, response.statusText);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
