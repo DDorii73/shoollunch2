@@ -529,6 +529,16 @@ body {
   50% { transform: scale(1.05); }
 }
 
+.user-avatar-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 50%;
+  background: white;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
+}
+
 .user-avatar {
   width: 36px;
   height: 36px;
@@ -1880,6 +1890,11 @@ body {
   }
   
   .bot-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .user-avatar-img {
     width: 32px;
     height: 32px;
   }

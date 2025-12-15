@@ -597,11 +597,15 @@ function addChatMessage(sender, message) {
   
   messageDiv.appendChild(messageContent);
   
-  // 사용자 메시지인 경우 아바타 추가 (선택사항)
+  // 사용자 메시지인 경우 밥학생 아바타 추가
   if (sender === 'user') {
     const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar user-avatar';
-    avatarDiv.textContent = '👤';
+    avatarDiv.className = 'message-avatar';
+    const avatarImg = document.createElement('img');
+    avatarImg.src = '/밥학생.png';
+    avatarImg.alt = '밥학생';
+    avatarImg.className = 'user-avatar-img';
+    avatarDiv.appendChild(avatarImg);
     messageDiv.appendChild(avatarDiv);
   }
   
