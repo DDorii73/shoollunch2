@@ -620,28 +620,7 @@ async function startChatbot() {
   // 먼저 오늘의 급식 메뉴를 가져옴 (API에서 실제 메뉴 가져오기)
   await fetchTodayMenu();
   
-  // 저장된 대화 히스토리 불러오기 시도
-  const savedHistory = await loadMealChatHistory();
-  
-  if (savedHistory && savedHistory.length > 0) {
-    // 저장된 대화가 있으면 복원
-    console.log('📝 저장된 챗봇 대화 복원 중...');
-    chatHistory = savedHistory;
-    chatTurn = chatHistory.length;
-    
-    // 화면에 메시지 표시
-    chatMessages.innerHTML = '';
-    chatHistory.forEach(msg => {
-      const sender = msg.role === 'user' ? 'user' : 'bot';
-      addChatMessage(sender, msg.content);
-    });
-    
-    console.log('✅ 챗봇 대화 복원 완료');
-    return;
-  }
-  
-  // 저장된 대화가 없으면 새로 시작
-  // 챗봇 상태 초기화
+  // 챗봇 상태 초기화 (항상 새로 시작)
   chatTurn = 0;
   chatHistory = [];
   
@@ -1644,26 +1623,7 @@ async function startNutritionChatbot(lunchData) {
   recordSection.classList.add('hidden');
   nutritionChatbotSection.classList.remove('hidden');
   
-  // 저장된 대화 히스토리 불러오기 시도
-  const savedHistory = await loadNutritionChatHistory();
-  
-  if (savedHistory && savedHistory.length > 0) {
-    // 저장된 대화가 있으면 복원
-    console.log('📝 저장된 영양 브리핑 챗봇 대화 복원 중...');
-    nutritionChatHistory = savedHistory;
-    
-    // 화면에 메시지 표시
-    nutritionChatMessages.innerHTML = '';
-    nutritionChatHistory.forEach(msg => {
-      const sender = msg.role === 'user' ? 'user' : 'bot';
-      addNutritionMessage(sender, msg.content);
-    });
-    
-    console.log('✅ 영양 브리핑 챗봇 대화 복원 완료');
-    return;
-  }
-  
-  // 대화 히스토리가 없을 때만 초기 메시지 표시
+  // 대화 히스토리 초기화 (항상 새로 시작)
   nutritionChatHistory = [];
   nutritionChatMessages.innerHTML = '';
   
@@ -2335,45 +2295,45 @@ async function saveSnackToFirebase(snackData) {
   }
 }
 
-// Firebase에서 급식 챗봇 대화 불러오기
-async function loadMealChatHistory() {
-  if (!db || !currentUser) {
-    return null;
-  }
-  
-  try {
-    const date = getTodayDate();
-    const chatHistoryRef = collection(db, 'chatHistory');
-    const q = query(
-      chatHistoryRef,
-      where('userId', '==', currentUser.uid),
-      where('date', '==', date),
-      where('type', '==', 'mealChat')
-    );
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      const docData = querySnapshot.docs[0].data();
-      if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
-        console.log('✅ 저장된 급식 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
-        return docData.messages;
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error('급식 챗봇 대화 불러오기 오류:', error);
-    
-    // 권한 오류인 경우 안내 메시지 표시
-    if (error.code === 'permission-denied') {
-      console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
-      console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
-      console.warn('   firestore.rules 파일을 Firebase Console에 배포해야 합니다.');
-    }
-    
-    // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
-    return null;
-  }
-}
+// Firebase에서 급식 챗봇 대화 불러오기 (현재 사용 안 함 - 대화는 저장만 하고 불러오지 않음)
+// async function loadMealChatHistory() {
+//   if (!db || !currentUser) {
+//     return null;
+//   }
+//   
+//   try {
+//     const date = getTodayDate();
+//     const chatHistoryRef = collection(db, 'chatHistory');
+//     const q = query(
+//       chatHistoryRef,
+//       where('userId', '==', currentUser.uid),
+//       where('date', '==', date),
+//       where('type', '==', 'mealChat')
+//     );
+//     const querySnapshot = await getDocs(q);
+//     
+//     if (!querySnapshot.empty) {
+//       const docData = querySnapshot.docs[0].data();
+//       if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
+//         console.log('✅ 저장된 급식 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
+//         return docData.messages;
+//       }
+//     }
+//     return null;
+//   } catch (error) {
+//     console.error('급식 챗봇 대화 불러오기 오류:', error);
+//     
+//     // 권한 오류인 경우 안내 메시지 표시
+//     if (error.code === 'permission-denied') {
+//       console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
+//       console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
+//       console.warn('   firestore.rules 파일을 Firebase Console에 배포해야 합니다.');
+//     }
+//     
+//     // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
+//     return null;
+//   }
+// }
 
 // Firebase에 급식 챗봇 대화 저장
 async function saveMealChatHistory() {
@@ -2425,44 +2385,44 @@ async function saveMealChatHistory() {
   }
 }
 
-// Firebase에서 영양 브리핑 챗봇 대화 불러오기
-async function loadNutritionChatHistory() {
-  if (!db || !currentUser) {
-    return null;
-  }
-  
-  try {
-    const date = getTodayDate();
-    const chatHistoryRef = collection(db, 'chatHistory');
-    const q = query(
-      chatHistoryRef,
-      where('userId', '==', currentUser.uid),
-      where('date', '==', date),
-      where('type', '==', 'nutritionChat')
-    );
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      const docData = querySnapshot.docs[0].data();
-      if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
-        console.log('✅ 저장된 영양 브리핑 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
-        return docData.messages;
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error('영양 브리핑 챗봇 대화 불러오기 오류:', error);
-    
-    // 권한 오류인 경우 안내 메시지 표시
-    if (error.code === 'permission-denied') {
-      console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
-      console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
-    }
-    
-    // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
-    return null;
-  }
-}
+// Firebase에서 영양 브리핑 챗봇 대화 불러오기 (현재 사용 안 함 - 대화는 저장만 하고 불러오지 않음)
+// async function loadNutritionChatHistory() {
+//   if (!db || !currentUser) {
+//     return null;
+//   }
+//   
+//   try {
+//     const date = getTodayDate();
+//     const chatHistoryRef = collection(db, 'chatHistory');
+//     const q = query(
+//       chatHistoryRef,
+//       where('userId', '==', currentUser.uid),
+//       where('date', '==', date),
+//       where('type', '==', 'nutritionChat')
+//     );
+//     const querySnapshot = await getDocs(q);
+//     
+//     if (!querySnapshot.empty) {
+//       const docData = querySnapshot.docs[0].data();
+//       if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
+//         console.log('✅ 저장된 영양 브리핑 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
+//         return docData.messages;
+//       }
+//     }
+//     return null;
+//   } catch (error) {
+//     console.error('영양 브리핑 챗봇 대화 불러오기 오류:', error);
+//     
+//     // 권한 오류인 경우 안내 메시지 표시
+//     if (error.code === 'permission-denied') {
+//       console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
+//       console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
+//     }
+//     
+//     // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
+//     return null;
+//   }
+// }
 
 // Firebase에 영양 브리핑 챗봇 대화 저장
 async function saveNutritionChatHistory() {
