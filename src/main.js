@@ -60,6 +60,21 @@ function convertAllergyNumbersToNames(allergyNumbers) {
   return names.join(', ');
 }
 
+// Netlify Functions URL 헬퍼 함수
+function getNetlifyFunctionUrl(functionName) {
+  // 개발 환경에서는 로컬 프록시 사용, 프로덕션에서는 Netlify Functions 사용
+  if (import.meta.env.DEV) {
+    // 개발 환경: vite.config.js의 proxy 사용
+    if (functionName === 'neis-api') {
+      return '/api/neis';
+    }
+    // 개발 환경에서는 직접 API 호출 (로컬에서는 CORS 문제 없음)
+    return null;
+  }
+  // 프로덕션 환경: Netlify Functions 사용
+  return `/.netlify/functions/${functionName}`;
+}
+
 // 오늘의 급식 메뉴 가져오기
 async function fetchTodayMenu() {
   const today = new Date();
@@ -98,12 +113,22 @@ async function fetchTodayMenu() {
     const dateStr = `${year}${month}${day}`;
     console.log('📅 조회할 날짜:', `${year}-${month}-${day}`, `(${dateStr})`);
     
-    // NEIS API 호출 (직접 호출 - NEIS API는 CORS를 허용함)
-    const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
+    // Netlify Function 또는 직접 API 호출
+    const functionUrl = getNetlifyFunctionUrl('neis-api');
+    let apiUrl;
+    let response;
     
-    console.log('🌐 NEIS API 호출:', apiUrl);
-    
-    const response = await fetch(apiUrl);
+    if (functionUrl) {
+      // Netlify Function 사용 (프로덕션)
+      apiUrl = `${functionUrl}?date=${dateStr}`;
+      console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
+      response = await fetch(apiUrl);
+    } else {
+      // 직접 API 호출 (개발 환경)
+      apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
+      console.log('🌐 NEIS API 호출 (직접):', apiUrl);
+      response = await fetch(apiUrl);
+    }
     
     console.log('📡 API 응답 상태:', response.status, response.statusText);
     
@@ -388,13 +413,6 @@ let nutritionChatHistory = [];
 
 // ChatGPT API 호출 함수
 async function callChatGPTAPI(userMessage) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    console.error('OpenAI API Key가 설정되지 않았습니다. .env 파일에 VITE_OPENAI_API_KEY를 설정해주세요.');
-    return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다. API 키를 설정해주세요.';
-  }
-
   // 대화 히스토리에 사용자 메시지 추가
   chatHistory.push({
     role: 'user',
@@ -405,18 +423,14 @@ async function callChatGPTAPI(userMessage) {
   const dangerousMenus = userAllergies && userAllergies.length > 0 ? checkAllergyInMenu() : [];
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `당신은 학교 급식 관리 챗봇입니다. 학생들과 친근하고 따뜻하게 대화하며 오늘의 급식에 대해 이야기합니다.
+    // Netlify Function 또는 직접 API 호출
+    const functionUrl = getNetlifyFunctionUrl('openai-chat');
+    let response;
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `당신은 학교 급식 관리 챗봇입니다. 학생들과 친근하고 따뜻하게 대화하며 오늘의 급식에 대해 이야기합니다.
 
 **매우 중요: 말투 및 어휘 사용 규칙**
 - 반드시 반말을 사용하세요. ("~해", "~야", "~지" 등)
@@ -500,16 +514,47 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 10. 알레르기 정보는 컨디션 질문 후 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
 13. **기초대사량(BMR), BMI, 목표 몸무게, 식사 비율 등은 언급하지 마세요. 기록 관리 탭에서만 다루는 내용입니다.**
 14. "오늘의 급식 칼로리가 맞는지 확인해볼까?" 같은 칼로리 확인 질문은 하지 마세요. 대신 "00에게 적합한 메뉴를 알아볼까?" 또는 "00에게 추천하는 메뉴를 알려줄까?" 같은 방식으로 학생에게 적합한 메뉴를 제안하는 방향으로 대화를 이끌어주세요.`
-          },
-          ...chatHistory
-        ],
-        max_tokens: 500,
-        temperature: 0.8
-      })
-    });
+      },
+      ...chatHistory
+    ];
+
+    if (functionUrl) {
+      // Netlify Function 사용 (프로덕션)
+      response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          model: 'gpt-3.5-turbo',
+        }),
+      });
+    } else {
+      // 직접 API 호출 (개발 환경)
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey || apiKey === 'your_openai_api_key_here') {
+        console.error('OpenAI API Key가 설정되지 않았습니다.');
+        return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다. API 키를 설정해주세요.';
+      }
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages,
+          max_tokens: 500,
+          temperature: 0.8
+        })
+      });
+    }
 
     if (!response.ok) {
-      throw new Error(`API 호출 실패: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API 호출 실패: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
     }
 
     const data = await response.json();
@@ -1294,45 +1339,65 @@ function imageToBase64(file) {
 
 // OpenAI Vision API로 간식 이미지 분석
 async function analyzeSnackImage(imageFile) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    return '죄송합니다. AI 분석 서비스가 준비되지 않았습니다.';
-  }
-
   try {
     // 이미지를 Base64로 변환
     const base64Image = await imageToBase64(imageFile);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: '이 사진에 있는 간식(음식)을 분석해주세요. 간식의 이름을 정확하게 알려주세요. 만약 여러 개의 간식이 있다면 쉼표로 구분하여 모두 나열해주세요. 한국어로 간단하게 답변해주세요. 예: "초콜릿 쿠키, 사과, 우유" 또는 "빵 2개, 과자" 등. 간식 이름만 나열하고 다른 설명은 하지 마세요.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: base64Image
+    const prompt = '이 사진에 있는 간식(음식)을 분석해주세요. 간식의 이름을 정확하게 알려주세요. 만약 여러 개의 간식이 있다면 쉼표로 구분하여 모두 나열해주세요. 한국어로 간단하게 답변해주세요. 예: "초콜릿 쿠키, 사과, 우유" 또는 "빵 2개, 과자" 등. 간식 이름만 나열하고 다른 설명은 하지 마세요.';
+    
+    // Netlify Function 또는 직접 API 호출
+    const functionUrl = getNetlifyFunctionUrl('openai-vision');
+    let response;
+    
+    if (functionUrl) {
+      // Netlify Function 사용 (프로덕션)
+      response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          base64Image,
+          prompt,
+          model: 'gpt-4o-mini',
+        }),
+      });
+    } else {
+      // 직접 API 호출 (개발 환경)
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey || apiKey === 'your_openai_api_key_here') {
+        return '죄송합니다. AI 분석 서비스가 준비되지 않았습니다.';
+      }
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: base64Image
+                  }
                 }
-              }
-            ]
-          }
-        ],
-        max_tokens: 200,
-        temperature: 0.3
-      })
-    });
+              ]
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.3
+        })
+      });
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1389,12 +1454,6 @@ function addNutritionMessage(sender, message) {
 
 // 영양 브리핑 챗봇 API 호출
 async function callNutritionChatGPTAPI(userMessage, lunchData) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다.';
-  }
-
   nutritionChatHistory.push({
     role: 'user',
     content: userMessage
@@ -1464,18 +1523,12 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
       return isCarbRich && item.count >= 2;
     });
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `당신은 영양사이자 건강 관리 전문가입니다. 학생들이 먹은 점심 식사의 영양을 분석하고 건강한 식습관을 위한 조언을 제공합니다.
+    // Netlify Function 또는 직접 API 호출
+    const functionUrl = getNetlifyFunctionUrl('openai-chat');
+    const messages = [
+      {
+        role: 'system',
+        content: `당신은 영양사이자 건강 관리 전문가입니다. 학생들이 먹은 점심 식사의 영양을 분석하고 건강한 식습관을 위한 조언을 제공합니다.
 
 오늘 학생이 먹은 점심 식사:
 ${menuSummary}
@@ -1549,16 +1602,47 @@ ${excessiveFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 && ca
 - 알레르기 유발 음식을 추천한 후 피하라고 말하는 일관성 없는 답변 금지
 - 알레르기 정보를 확인하지 않고 간식을 추천하는 행위 금지
 - 이전 대화에서 언급한 알레르기 정보와 모순되는 답변 금지`
-          },
-          ...nutritionChatHistory
-        ],
-        max_tokens: 500,
-        temperature: 0.8
-      })
-    });
+      },
+      ...nutritionChatHistory
+    ];
+
+    let response;
+    if (functionUrl) {
+      // Netlify Function 사용 (프로덕션)
+      response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+          model: 'gpt-3.5-turbo',
+        }),
+      });
+    } else {
+      // 직접 API 호출 (개발 환경)
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey || apiKey === 'your_openai_api_key_here') {
+        return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다.';
+      }
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages,
+          max_tokens: 500,
+          temperature: 0.8
+        })
+      });
+    }
 
     if (!response.ok) {
-      throw new Error(`API 호출 실패: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API 호출 실패: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
     }
 
     const data = await response.json();

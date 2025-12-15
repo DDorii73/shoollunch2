@@ -3,6 +3,8 @@
   command = "npm run build"
   # 빌드 출력 디렉토리
   publish = "dist"
+  # Functions 디렉토리
+  functions = "netlify/functions"
 
 # 환경 변수 (로컬 개발용, 실제 값은 Netlify 대시보드에서 설정)
 [build.environment]
