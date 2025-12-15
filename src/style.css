@@ -275,8 +275,8 @@ body {
 .student-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px;
-  padding-bottom: 40px;
+  padding: 24px;
+  padding-bottom: 24px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -366,9 +366,9 @@ body {
 .chatbot-section {
   background: var(--card-bg);
   border-radius: 20px;
-  padding: 40px;
+  padding: 28px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  margin-bottom: 30px;
+  margin-bottom: 24px;
   border: 1px solid var(--border-color);
   width: 100%;
   box-sizing: border-box;
@@ -376,8 +376,8 @@ body {
 
 @media (max-width: 768px) {
   .chatbot-section {
-    padding: 20px 16px;
-    margin-bottom: 20px;
+    padding: 16px 12px;
+    margin-bottom: 16px;
     border-radius: 16px;
   }
 }
@@ -684,7 +684,7 @@ body {
 .record-section {
   background: var(--card-bg);
   border-radius: 20px;
-  padding: 40px;
+  padding: 28px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid var(--border-color);
   width: 100%;
@@ -693,7 +693,7 @@ body {
 
 @media (max-width: 768px) {
   .record-section {
-    padding: 20px 16px;
+    padding: 16px 12px;
     border-radius: 16px;
   }
   
@@ -2126,14 +2126,14 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px 8px;
+  padding: 12px 10px;
   text-decoration: none;
   color: var(--text-light);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 64px;
+  min-height: 70px;
   position: relative;
   border-radius: 16px 16px 0 0;
-  margin: 0 6px;
+  margin: 0 8px;
   background: transparent;
 }
 

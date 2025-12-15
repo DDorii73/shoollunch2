@@ -276,7 +276,29 @@ async function loadSavedRecord() {
       savedTargetWeight.textContent = data.targetWeight || '-';
       savedAge.textContent = data.age || '-';
       savedGender.textContent = data.gender === 'male' ? '남성' : '여성';
-      savedBmi.textContent = data.bmi ? data.bmi.toFixed(1) : '-';
+      
+      // BMI 표시 및 정상 범주 확인
+      if (data.bmi) {
+        savedBmi.textContent = data.bmi.toFixed(1);
+        // 정상 범주 (18.5 ~ 23) 확인
+        if (data.bmi >= 18.5 && data.bmi < 23) {
+          savedBmi.style.color = '#7ED321';
+          savedBmi.style.fontWeight = '700';
+          savedBmi.style.fontSize = '18px';
+          savedBmi.setAttribute('data-bmi-status', 'normal');
+        } else {
+          savedBmi.style.color = '';
+          savedBmi.style.fontWeight = '';
+          savedBmi.style.fontSize = '';
+          savedBmi.removeAttribute('data-bmi-status');
+        }
+      } else {
+        savedBmi.textContent = '-';
+        savedBmi.style.color = '';
+        savedBmi.style.fontWeight = '';
+        savedBmi.style.fontSize = '';
+      }
+      
       savedBmr.textContent = data.bmr ? Math.round(data.bmr) : '-';
       
       // 알레르기 정보 표시
