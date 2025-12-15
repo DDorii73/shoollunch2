@@ -42,7 +42,12 @@
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">
           <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." />
-          <button id="send-btn" class="send-btn">전송</button>
+          <button id="send-btn" class="send-btn" title="전송">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
         <div class="chatbot-controls">
           <button id="end-chat-btn" class="end-chat-btn hidden">Chatbot과의 대화 끝내기</button>
@@ -53,7 +58,10 @@
     <!-- 음식 기록 섹션 -->
     <div id="record-section" class="record-section hidden">
       <div class="record-container">
-        <h2>오늘 먹은 음식 기록하기</h2>
+        <div class="record-header-with-image">
+          <img src="/밥학생.png" alt="밥학생" class="record-main-image">
+          <h2>오늘 먹은 음식 기록하기</h2>
+        </div>
         
         <!-- 점심 급식 섹션 -->
         <div class="meal-record">

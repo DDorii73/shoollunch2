@@ -576,18 +576,6 @@ function addChatMessage(sender, message) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}`;
   
-  // 봇 메시지인 경우 캐릭터 아바타 추가
-  if (sender === 'bot') {
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar';
-    const avatarImg = document.createElement('img');
-    avatarImg.src = '/밥체크.png';
-    avatarImg.alt = '밥체크';
-    avatarImg.className = 'bot-avatar';
-    avatarDiv.appendChild(avatarImg);
-    messageDiv.appendChild(avatarDiv);
-  }
-  
   const messageContent = document.createElement('div');
   messageContent.className = 'message-content';
   
@@ -596,18 +584,6 @@ function addChatMessage(sender, message) {
   messageContent.innerHTML = formattedMessage;
   
   messageDiv.appendChild(messageContent);
-  
-  // 사용자 메시지인 경우 밥학생 아바타 추가
-  if (sender === 'user') {
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar';
-    const avatarImg = document.createElement('img');
-    avatarImg.src = '/밥학생.png';
-    avatarImg.alt = '밥학생';
-    avatarImg.className = 'user-avatar-img';
-    avatarDiv.appendChild(avatarImg);
-    messageDiv.appendChild(avatarDiv);
-  }
   
   chatMessages.appendChild(messageDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
