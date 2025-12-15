@@ -20,11 +20,27 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# 특정 페이지 리다이렉트
+# 특정 페이지 리다이렉트 (HTML 파일 자동 추가)
+# /student로 접근하면 /student.html로 리다이렉트
 [[redirects]]
   from = "/student"
   to = "/student.html"
   status = 200
+  force = true
+
+# /recordManagement로 접근하면 /recordManagement.html로 리다이렉트
+[[redirects]]
+  from = "/recordManagement"
+  to = "/recordManagement.html"
+  status = 200
+  force = true
+
+# /teacherMonitor로 접근하면 /teacherMonitor.html로 리다이렉트
+[[redirects]]
+  from = "/teacherMonitor"
+  to = "/teacherMonitor.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

@@ -33,6 +33,12 @@
       <p class="loading">데이터를 불러오는 중...</p>
     </div>
   </div>
+  <!-- 경로 자동 수정: /teacherMonitor로 접근하면 /teacherMonitor.html로 리다이렉트 -->
+  <script>
+    if (window.location.pathname === '/teacherMonitor' || window.location.pathname === '/teacherMonitor/') {
+      window.location.replace('/teacherMonitor.html');
+    }
+  </script>
   <script type="module" src="/src/admin.js"></script>
 </body>
 </html>

@@ -276,6 +276,12 @@
     </a>
   </nav>
   
+  <!-- 경로 자동 수정: /recordManagement로 접근하면 /recordManagement.html로 리다이렉트 -->
+  <script>
+    if (window.location.pathname === '/recordManagement' || window.location.pathname === '/recordManagement/') {
+      window.location.replace('/recordManagement.html');
+    }
+  </script>
   <script type="module" src="/src/recordManagement.js"></script>
 </body>
 </html>

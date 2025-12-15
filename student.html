@@ -131,6 +131,13 @@
     </a>
   </nav>
   
+  <!-- 경로 자동 수정: /student로 접근하면 /student.html로 리다이렉트 -->
+  <script>
+    // 현재 경로가 /student이고 .html이 없으면 자동으로 추가
+    if (window.location.pathname === '/student' || window.location.pathname === '/student/') {
+      window.location.replace('/student.html');
+    }
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
