@@ -1905,11 +1905,20 @@ body {
 /* 메인 페이지 네비게이션 버튼 */
 .nav-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-top: 40px;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* 학생 계정: 1열 3등분 (3개 버튼) */
+.nav-buttons.student-layout {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 교사 계정: 2열 2등분 (4개 버튼) */
+.nav-buttons.teacher-layout {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 @media (max-width: 768px) {
@@ -1917,7 +1926,15 @@ body {
     gap: 12px;
     margin-top: 30px;
     padding: 0;
+  }
+  
+  /* 모바일에서도 동일한 레이아웃 유지 */
+  .nav-buttons.student-layout {
     grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .nav-buttons.teacher-layout {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

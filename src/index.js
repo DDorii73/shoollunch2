@@ -224,6 +224,11 @@ function showNavButtons(user) {
       if (monitoringFeature) {
         monitoringFeature.style.display = 'block';
       }
+      // 교사 계정: 2열 2등분 레이아웃 (4개 버튼)
+      if (navButtons) {
+        navButtons.classList.add('teacher-layout');
+        navButtons.classList.remove('student-layout');
+      }
       console.log('✅ 관리자 권한 확인: 교사 모니터링 버튼 및 feature 표시');
     } else {
       // 학생인 경우: 모니터링 feature와 버튼 숨김
@@ -232,6 +237,11 @@ function showNavButtons(user) {
       }
       if (monitoringFeature) {
         monitoringFeature.style.display = 'none';
+      }
+      // 학생 계정: 1열 3등분 레이아웃 (3개 버튼)
+      if (navButtons) {
+        navButtons.classList.add('student-layout');
+        navButtons.classList.remove('teacher-layout');
       }
       console.log('ℹ️ 일반 사용자: 교사 모니터링 버튼 및 feature 숨김');
     }
@@ -242,6 +252,7 @@ function showNavButtons(user) {
 function hideNavButtons() {
   if (navButtons) {
     navButtons.classList.add('hidden');
+    navButtons.classList.remove('student-layout', 'teacher-layout');
   }
   if (teacherMonitorBtn) {
     teacherMonitorBtn.classList.add('hidden');
