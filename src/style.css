@@ -1905,17 +1905,11 @@ body {
 /* 메인 페이지 네비게이션 버튼 */
 .nav-buttons {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
   margin-top: 40px;
   width: 100%;
   box-sizing: border-box;
-}
-
-@media (min-width: 1024px) {
-  .nav-buttons {
-    grid-template-columns: repeat(4, 1fr);
-  }
 }
 
 @media (max-width: 768px) {
@@ -1923,6 +1917,7 @@ body {
     gap: 12px;
     margin-top: 30px;
     padding: 0;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
