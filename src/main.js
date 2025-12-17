@@ -648,7 +648,7 @@ async function startChatbot() {
   }
   
   // 첫 번째 메시지: 자연스러운 인사
-  const greetingMessage = '안녕! 오늘도 밥체크야. 오늘 점심메뉴가 궁금하지?';
+  const greetingMessage = '안녕 나는 밥풀이야. 오늘 점심메뉴가 궁금하지?';
   addChatMessage('bot', greetingMessage);
   
   // 잠시 후 메뉴 표시 (API에서 가져온 실제 메뉴만 표시)

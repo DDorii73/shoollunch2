@@ -1,7 +1,7 @@
 // 교사 모니터링 페이지 관련
 import { auth, db, isAdmin } from './firebaseConfig.js';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, setDoc } from 'firebase/firestore';
 
 // 오늘의 날짜 가져오기
 function getTodayDate() {
@@ -38,6 +38,34 @@ onAuthStateChanged(auth, async (user) => {
   }
   
   console.log('✅ 관리자 권한 확인 완료:', user.email);
+  
+  // 사용자 인사말 표시 (관리자이므로 무조건 선생님으로 표시)
+  const displayName = user.displayName || user.email;
+  const userGreeting = document.getElementById('user-greeting');
+  if (userGreeting) {
+    userGreeting.textContent = `안녕하세요! ${displayName}선생님!`;
+  }
+  
+  // Firestore에 역할이 'teacher'로 저장되어 있지 않다면 업데이트
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists() && userSnap.data().role !== 'teacher') {
+      await setDoc(userRef, { role: 'teacher' }, { merge: true });
+      console.log('✅ 사용자 역할을 teacher로 업데이트했습니다.');
+    } else if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        role: 'teacher',
+        createdAt: new Date().toISOString()
+      });
+      console.log('✅ 새 사용자 정보를 teacher 역할로 저장했습니다.');
+    }
+  } catch (error) {
+    console.warn('사용자 역할 업데이트 실패:', error);
+  }
   
   // 데이터 로드
   loadRecords(datePicker.value);

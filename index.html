@@ -13,54 +13,30 @@
       <div class="logo-container">
         <img src="/밥로그.png" alt="밥로그" class="main-logo">
         <h1>밥로그</h1>
+        <button id="back-to-role-btn" class="back-to-role-btn hidden" title="다시 선택하기">←</button>
       </div>
       <p class="subtitle">오늘의 급식을 기록하고 관리하세요</p>
       
-      <div class="welcome-section">
-        <h2>안녕하세요! 👋</h2>
-        <p>오늘 식단표를 알아보고, 음식을 기록할 수 있어요.</p>
-      </div>
-
-      <div class="features">
-        <div class="feature-item">
-          <div class="emoji">💬</div>
-          <h3>챗봇 대화</h3>
-          <p>자연스러운 대화로 급식 정보 수집, 음식 기록</p>
+      <!-- 역할 선택 섹션 (로그인 전) -->
+      <div id="role-selection-section" class="role-selection-section">
+        <div class="role-selection-header">
         </div>
-        <div class="feature-item">
-          <div class="emoji">📝</div>
-          <h3>음식 기록</h3>
-          <p>점심과 간식을 쉽게 기록, 모니터링</p>
-        </div>
-        <div class="feature-item" id="monitoring-feature">
-          <div class="emoji">📊</div>
-          <h3>모니터링</h3>
-          <p>기록 확인</p>
+        
+        <div class="role-buttons">
+          <button id="student-role-btn" class="role-btn student-role">
+            <div class="role-title">학생</div>
+          </button>
+          <button id="teacher-role-btn" class="role-btn teacher-role">
+            <div class="role-title">선생님</div>
+          </button>
         </div>
       </div>
 
-      <div id="login-status"></div>
-      
-      <div class="nav-buttons hidden">
-        <a href="/recordManagement.html" class="nav-btn record">
-          <span>👤</span>
-          <span>내정보</span>
-        </a>
-        <a href="/student.html" class="nav-btn student">
-          <span>🍽️</span>
-          <span>오늘의 급식</span>
-        </a>
-        <a href="/student.html" class="nav-btn food-record" id="food-record-btn">
-          <span>✏️</span>
-          <span>음식 기록</span>
-        </a>
-        <a href="/teacherMonitor.html" id="teacher-monitor-btn" class="nav-btn teacher hidden">
-          <span>📊</span>
-          <span>모니터링<br>페이지</span>
-        </a>
-      </div>
-
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+      <!-- 구글 로그인 섹션 (역할 선택 후) -->
+      <div id="google-login-section" class="google-login-section hidden">
+        <div class="selected-role-info">
+          <span id="selected-role-text"></span> 로그인합니다
+        </div>
         <button id="google-login-btn" class="google-btn">
           <svg width="20" height="20" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -72,8 +48,29 @@
         </button>
       </div>
 
+      <div id="login-status"></div>
+      
+      <div class="nav-buttons hidden">
+        <a href="/recordManagement.html" class="nav-btn record">
+          <img src="/user.png" alt="내정보" class="nav-icon">
+          <span>내정보</span>
+        </a>
+        <a href="/student.html" class="nav-btn student">
+          <img src="/school (1).png" alt="오늘의 급식" class="nav-icon">
+          <span>오늘의 급식</span>
+        </a>
+        <a href="/student.html" class="nav-btn food-record" id="food-record-btn">
+          <img src="/pencil.png" alt="기록" class="nav-icon">
+          <span>기록</span>
+        </a>
+        <a href="/teacherMonitor.html" id="teacher-monitor-btn" class="nav-btn teacher hidden">
+          <img src="/monitor.png" alt="모니터링" class="nav-icon">
+          <span>모니터링</span>
+        </a>
+      </div>
+
       <div id="user-info" class="user-info hidden">
-        <p>안녕하세요, <span id="user-name"></span>님!</p>
+        <p id="user-greeting">안녕하세요, <span id="user-name"></span>님!</p>
         <button id="logout-btn" class="logout-btn">로그아웃</button>
       </div>
     </div>
