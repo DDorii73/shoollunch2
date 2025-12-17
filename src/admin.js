@@ -88,9 +88,11 @@ refreshBtn.addEventListener('click', () => {
 });
 
 // 돌아가기
-backBtn.addEventListener('click', () => {
-  window.location.href = '/index.html';
-});
+if (backBtn) {
+  backBtn.addEventListener('click', () => {
+    window.location.href = '/index.html';
+  });
+}
 
 // 기록 로드
 async function loadRecords(date) {

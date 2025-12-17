@@ -2174,9 +2174,11 @@ if (newSnackBtn) {
   });
 }
 
-backBtn.addEventListener('click', () => {
-  window.location.href = '/index.html';
-});
+if (backBtn) {
+  backBtn.addEventListener('click', () => {
+    window.location.href = '/index.html';
+  });
+}
 
 // 영양 브리핑 챗봇 전송 버튼
 nutritionSendBtn.addEventListener('click', async () => {

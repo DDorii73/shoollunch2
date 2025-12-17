@@ -390,9 +390,11 @@ if (saveAllergyBtn) {
 }
 
 // 돌아가기 버튼
-backBtn.addEventListener('click', () => {
-  window.location.href = '/index.html';
-});
+if (backBtn) {
+  backBtn.addEventListener('click', () => {
+    window.location.href = '/index.html';
+  });
+}
 
 // 날짜별 기록 데이터 불러오기
 async function loadChartData() {

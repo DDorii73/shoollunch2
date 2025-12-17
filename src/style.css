@@ -1006,6 +1006,13 @@ body {
   z-index: 1;
 }
 
+.meal-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .meal-record {
     padding: 20px 16px;
@@ -1368,8 +1375,12 @@ body {
   .camera-btn {
     min-height: 48px;
     min-width: 48px;
-    padding: 12px 18px;
-    font-size: 16px;
+    padding: 10px;
+  }
+  
+  .btn-icon {
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -1385,12 +1396,11 @@ body {
 }
 
 .new-input-btn {
-  padding: 8px 12px;
+  padding: 8px;
   background: transparent;
-  border: 2px solid var(--border-color);
+  border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 20px;
   transition: all 0.3s;
   display: flex;
   align-items: center;
@@ -1400,9 +1410,14 @@ body {
 }
 
 .new-input-btn:hover {
-  background: var(--warm-beige);
-  border-color: var(--primary-color);
+  background: rgba(74, 144, 226, 0.1);
   transform: scale(1.1);
+}
+
+.refresh-icon {
+  width: 41px;
+  height: 41px;
+  object-fit: contain;
 }
 
 .skip-btn {
@@ -1436,34 +1451,51 @@ body {
 }
 
 .add-btn {
-  padding: 10px 20px;
-  background: var(--accent-color);
-  color: white;
+  padding: 8px;
+  background: linear-gradient(135deg, #FFE082, #FFD54F);
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
 }
 
 .add-btn:hover {
-  background: #F57C00;
+  background: linear-gradient(135deg, #FFD54F, #FFC107);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
 }
 
 .camera-btn {
-  padding: 10px 15px;
-  background: linear-gradient(135deg, #4CAF50, #45a049);
-  color: white;
+  padding: 8px;
+  background: linear-gradient(135deg, #FFB74D, #90CAF9);
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
-  font-size: 18px;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  box-shadow: 0 2px 8px rgba(255, 183, 77, 0.3);
 }
 
 .camera-btn:hover {
-  background: linear-gradient(135deg, #45a049, #3d8b40);
+  background: linear-gradient(135deg, #FFA726, #81C784);
   transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 183, 77, 0.4);
+}
+
+.btn-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .analyze-btn {
@@ -2480,9 +2512,13 @@ body {
   .home-btn {
     width: 44px;
     height: 44px;
-    font-size: 20px;
     top: 16px;
     right: 16px;
+  }
+  
+  .home-icon {
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -2637,7 +2673,6 @@ body.has-bottom-nav {
   color: white;
   border: none;
   border-radius: 50%;
-  font-size: 24px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
   transition: all 0.3s;
@@ -2645,6 +2680,7 @@ body.has-bottom-nav {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
 
 .home-btn:hover {
@@ -2655,4 +2691,10 @@ body.has-bottom-nav {
 
 .home-btn:active {
   transform: scale(0.95);
+}
+
+.home-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }

@@ -21,13 +21,14 @@
 </head>
 <body>
   <div class="student-container">
-    <button id="home-btn" class="home-btn" onclick="window.location.href='/index.html'" title="홈으로">🏠</button>
+    <button id="home-btn" class="home-btn" onclick="window.location.href='/index.html'" title="홈으로">
+      <img src="/home.png" alt="홈으로" class="home-icon">
+    </button>
     <header class="student-header">
       <div class="header-logo-container">
         <img src="/밥로그.png" alt="밥로그" class="header-logo">
         <h1>오늘의 급식</h1>
       </div>
-      <button id="back-btn" class="back-btn">← 돌아가기</button>
     </header>
 
     <!-- 챗봇 섹션 -->
@@ -67,10 +68,15 @@
         <div class="meal-record">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <h3 style="margin: 0;">🍱 점심 급식</h3>
+              <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                <img src="/school (1).png" alt="점심 급식" class="meal-icon">
+                <span>점심 급식</span>
+              </h3>
               <button id="skip-lunch-btn" class="skip-btn" title="안먹었어요">안먹었어요</button>
             </div>
-            <button id="new-lunch-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
+            <button id="new-lunch-btn" class="new-input-btn hidden" title="새로입력하기">
+              <img src="/loading-arrow.png" alt="새로입력하기" class="refresh-icon">
+            </button>
           </div>
           <p class="meal-description">오늘 제공된 메뉴 중 먹은 것을 클릭하거나 선택하고 횟수를 입력하세요.</p>
           
@@ -96,10 +102,15 @@
         <!-- 간식 섹션 -->
         <div class="meal-record">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3 style="margin: 0;">🍪 방과후 간식</h3>
+            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+              <img src="/cookies.png" alt="방과후 간식" class="meal-icon">
+              <span>방과후 간식</span>
+            </h3>
             <div style="display: flex; align-items: center; gap: 10px;">
               <button id="skip-snack-btn" class="skip-btn" title="참았어요">참았어요</button>
-              <button id="new-snack-btn" class="new-input-btn hidden" title="새로입력하기">🔄</button>
+              <button id="new-snack-btn" class="new-input-btn hidden" title="새로입력하기">
+                <img src="/loading-arrow.png" alt="새로입력하기" class="refresh-icon">
+              </button>
             </div>
           </div>
           <p class="meal-description">먹은 간식을 입력하세요.</p>
@@ -107,8 +118,12 @@
           <div class="snack-input-section">
             <div class="food-input-group">
               <input type="text" id="snack-input" placeholder="간식 이름을 입력하세요 (예: 우유, 빵, 과자)" />
-              <button id="add-snack-btn" class="add-btn">추가</button>
-              <button id="camera-snack-btn" class="camera-btn" title="사진으로 간식 입력">📷</button>
+              <button id="add-snack-btn" class="add-btn" title="추가">
+                <img src="/plus.png" alt="추가" class="btn-icon">
+              </button>
+              <button id="camera-snack-btn" class="camera-btn" title="사진으로 간식 입력">
+                <img src="/camera.png" alt="카메라" class="btn-icon">
+              </button>
             </div>
             <input type="file" id="snack-image-input" accept="image/*" capture="environment" style="display: none;" />
             <div class="food-list" id="snack-foods"></div>
