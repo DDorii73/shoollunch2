@@ -5,6 +5,17 @@ import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs
 
 // DOM 요소
 const backBtn = document.getElementById('back-btn');
+const schoolNameInput = document.getElementById('school-name-input');
+const educationOfficeCodeInput = document.getElementById('education-office-code-input');
+const schoolCodeInput = document.getElementById('school-code-input');
+const searchSchoolBtn = document.getElementById('search-school-btn');
+const schoolSearchResults = document.getElementById('school-search-results');
+const saveSchoolBtn = document.getElementById('save-school-btn');
+const editSchoolBtn = document.getElementById('edit-school-btn');
+const savedSchoolInfo = document.getElementById('saved-school-info');
+const savedSchoolName = document.getElementById('saved-school-name');
+const savedEducationOfficeCode = document.getElementById('saved-education-office-code');
+const savedSchoolCode = document.getElementById('saved-school-code');
 const heightInput = document.getElementById('height-input');
 const weightInput = document.getElementById('weight-input');
 const targetWeightInput = document.getElementById('target-weight-input');
@@ -721,12 +732,221 @@ if (loadFoodRecordsBtn) {
   });
 }
 
+// Netlify Functions URL 헬퍼 함수
+function getNetlifyFunctionUrl(functionName) {
+  return `/.netlify/functions/${functionName}`;
+}
+
+// 학교 정보 검색
+async function searchSchool() {
+  const schoolName = schoolNameInput.value.trim();
+  
+  if (!schoolName) {
+    alert('학교 이름을 입력해주세요.');
+    return;
+  }
+  
+  try {
+    searchSchoolBtn.disabled = true;
+    searchSchoolBtn.textContent = '검색 중...';
+    schoolSearchResults.style.display = 'none';
+    
+    const functionUrl = getNetlifyFunctionUrl('school-search');
+    const apiUrl = `${functionUrl}?schoolName=${encodeURIComponent(schoolName)}`;
+    
+    console.log('🔍 학교 정보 검색:', apiUrl);
+    
+    const response = await fetch(apiUrl);
+    
+    // Content-Type 확인
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('❌ JSON이 아닌 응답:', text.substring(0, 200));
+      throw new Error('서버 응답 오류: Netlify Function이 실행되지 않았습니다. 로컬 개발 환경에서는 `netlify dev` 명령어로 실행해주세요.');
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP 오류: ${response.status}` }));
+      throw new Error(errorData.details || errorData.error || `HTTP 오류: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      schoolSearchResults.innerHTML = `<p style="color: red; font-size: 14px;">${data.details || data.error}</p>`;
+      schoolSearchResults.style.display = 'block';
+      return;
+    }
+    
+    if (!data.schools || data.schools.length === 0) {
+      schoolSearchResults.innerHTML = `<p style="color: var(--text-light); font-size: 14px;">검색 결과가 없습니다. 학교 이름을 다시 확인해주세요.</p>`;
+      schoolSearchResults.style.display = 'block';
+      return;
+    }
+    
+    // 검색 결과 표시
+    let resultsHTML = '<div style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px;">';
+    resultsHTML += `<p style="font-weight: 600; margin-bottom: 8px;">검색 결과 (${data.schools.length}개)</p>`;
+    
+    data.schools.forEach((school, index) => {
+      resultsHTML += `
+        <div style="padding: 10px; margin-bottom: 8px; background: white; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;" 
+             onmouseover="this.style.borderColor='var(--primary-color)';" 
+             onmouseout="this.style.borderColor='transparent';"
+             onclick="selectSchool('${school.schoolName}', '${school.educationOfficeCode}', '${school.schoolCode}')">
+          <div style="font-weight: 600; color: var(--primary-color);">${school.schoolName}</div>
+          <div style="font-size: 12px; color: var(--text-light); margin-top: 4px;">
+            ${school.schoolType || ''} | ${school.address || ''}
+          </div>
+          <div style="font-size: 11px; color: var(--text-light); margin-top: 2px;">
+            교육청: ${school.educationOfficeCode} | 학교코드: ${school.schoolCode}
+          </div>
+        </div>
+      `;
+    });
+    
+    resultsHTML += '</div>';
+    schoolSearchResults.innerHTML = resultsHTML;
+    schoolSearchResults.style.display = 'block';
+    
+  } catch (error) {
+    console.error('학교 검색 오류:', error);
+    schoolSearchResults.innerHTML = `<p style="color: red; font-size: 14px;">검색 중 오류가 발생했습니다: ${error.message}</p>`;
+    schoolSearchResults.style.display = 'block';
+  } finally {
+    searchSchoolBtn.disabled = false;
+    searchSchoolBtn.textContent = '찾기';
+  }
+}
+
+// 학교 선택 함수 (전역 함수로 등록)
+window.selectSchool = function(schoolName, educationOfficeCode, schoolCode) {
+  schoolNameInput.value = schoolName;
+  educationOfficeCodeInput.value = educationOfficeCode;
+  schoolCodeInput.value = schoolCode;
+  schoolSearchResults.style.display = 'none';
+  schoolSearchResults.innerHTML = '';
+};
+
+// 학교 정보 저장
+async function saveSchoolInfo() {
+  if (!currentUser) {
+    alert('로그인이 필요합니다.');
+    window.location.href = '/index.html';
+    return;
+  }
+  
+  const schoolName = schoolNameInput.value.trim();
+  const educationOfficeCode = educationOfficeCodeInput.value.trim().toUpperCase();
+  const schoolCode = schoolCodeInput.value.trim();
+  
+  if (!schoolName || !educationOfficeCode || !schoolCode) {
+    alert('모든 필드를 입력해주세요.');
+    return;
+  }
+  
+  try {
+    const userRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userRef, {
+      schoolName: schoolName,
+      educationOfficeCode: educationOfficeCode,
+      schoolCode: schoolCode,
+      schoolInfoUpdatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    console.log('✅ 학교 정보가 저장되었습니다.');
+    alert('✅ 학교 정보가 저장되었습니다!');
+    
+    await loadSavedSchoolInfo();
+  } catch (error) {
+    console.error('학교 정보 저장 오류:', error);
+    alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+  }
+}
+
+// 저장된 학교 정보 불러오기
+async function loadSavedSchoolInfo() {
+  if (!currentUser || !db) {
+    return;
+  }
+  
+  try {
+    const userRef = doc(db, 'users', currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      
+      if (data.schoolName && data.educationOfficeCode && data.schoolCode) {
+        // 저장된 정보 표시
+        savedSchoolName.textContent = data.schoolName;
+        savedEducationOfficeCode.textContent = data.educationOfficeCode;
+        savedSchoolCode.textContent = data.schoolCode;
+        savedSchoolInfo.classList.remove('hidden');
+        
+        // 입력 필드 숨기기
+        schoolNameInput.closest('.meal-record').style.display = 'none';
+      } else {
+        // 저장된 정보가 없으면 입력 필드 표시
+        savedSchoolInfo.classList.add('hidden');
+        schoolNameInput.closest('.meal-record').style.display = 'block';
+      }
+    } else {
+      // 사용자 정보가 없으면 입력 필드 표시
+      savedSchoolInfo.classList.add('hidden');
+      schoolNameInput.closest('.meal-record').style.display = 'block';
+    }
+  } catch (error) {
+    console.error('학교 정보 불러오기 오류:', error);
+  }
+}
+
+// 학교 정보 수정 버튼
+if (editSchoolBtn) {
+  editSchoolBtn.addEventListener('click', () => {
+    savedSchoolInfo.classList.add('hidden');
+    schoolNameInput.closest('.meal-record').style.display = 'block';
+    
+    // 저장된 정보를 입력 필드에 채우기
+    if (savedSchoolName.textContent !== '-') {
+      schoolNameInput.value = savedSchoolName.textContent;
+      educationOfficeCodeInput.value = savedEducationOfficeCode.textContent;
+      schoolCodeInput.value = savedSchoolCode.textContent;
+    }
+  });
+}
+
+// 학교 검색 버튼
+if (searchSchoolBtn) {
+  searchSchoolBtn.addEventListener('click', async () => {
+    await searchSchool();
+  });
+  
+  // Enter 키로도 검색 가능
+  if (schoolNameInput) {
+    schoolNameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        searchSchool();
+      }
+    });
+  }
+}
+
+// 학교 정보 저장 버튼
+if (saveSchoolBtn) {
+  saveSchoolBtn.addEventListener('click', async () => {
+    await saveSchoolInfo();
+  });
+}
+
 // 사용자 인증 상태 확인
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
       console.log('✅ 사용자 로그인:', user.email);
+      await loadSavedSchoolInfo();
       await loadSavedRecord();
       initializeDateRange();
       initializeMonthSelector();
