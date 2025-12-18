@@ -759,72 +759,67 @@ async function searchSchool() {
     let response;
     let data;
     
+    // 먼저 직접 NEIS API 호출 시도 (.env의 API 키 사용)
     try {
-      response = await fetch(apiUrl);
-      
-      // Content-Type 확인
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        // Netlify Function이 작동하지 않는 경우, 직접 NEIS API 호출 시도
-        console.warn('⚠️ Netlify Function이 작동하지 않습니다. 직접 API 호출을 시도합니다.');
-        throw new Error('FALLBACK_TO_DIRECT_API');
+      // .env에서 API 키 가져오기
+      const apiKey = import.meta.env.VITE_NEIS_API_KEY;
+      if (!apiKey || apiKey.trim() === '') {
+        throw new Error('NEIS API 키가 설정되지 않았습니다. .env 파일에 VITE_NEIS_API_KEY를 설정해주세요.');
       }
+      
+      console.log('🔄 직접 NEIS API 호출 시도...');
+      const directApiUrl = `https://open.neis.go.kr/hub/schoolInfo?KEY=${apiKey.trim()}&Type=json&SCHUL_NM=${encodeURIComponent(schoolName)}`;
+      console.log('🌐 직접 NEIS API 호출:', directApiUrl.replace(apiKey.trim(), 'KEY=***'));
+      
+      response = await fetch(directApiUrl);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `HTTP 오류: ${response.status}` }));
-        throw new Error(errorData.details || errorData.error || `HTTP 오류: ${response.status}`);
+        throw new Error(`NEIS API 호출 실패: ${response.status}`);
       }
       
-      data = await response.json();
-    } catch (error) {
-      // Netlify Function 실패 시 직접 NEIS API 호출 (로컬 개발 환경용)
-      if (error.message === 'FALLBACK_TO_DIRECT_API' || error.message.includes('Failed to fetch')) {
-        console.log('🔄 직접 NEIS API 호출 시도...');
+      const neisData = await response.json();
+      
+      // 응답 파싱
+      if (neisData.RESULT && neisData.RESULT.CODE !== 'INFO-000') {
+        throw new Error(neisData.RESULT.MESSAGE || '검색 결과가 없습니다.');
+      }
+      
+      // 학교 정보 추출
+      const schools = [];
+      if (neisData.schoolInfo && Array.isArray(neisData.schoolInfo) && neisData.schoolInfo.length > 0) {
+        const schoolList = neisData.schoolInfo[1]?.row || [];
+        schools.push(...schoolList.map(school => ({
+          schoolName: school.SCHUL_NM,
+          educationOfficeCode: school.ATPT_OFCDC_SC_CODE,
+          schoolCode: school.SD_SCHUL_CODE,
+          schoolType: school.SCHUL_KND_SC_NM,
+          address: school.ORG_RDNMA
+        })));
+      }
+      
+      data = { schools: schools, count: schools.length };
+    } catch (directApiError) {
+      // 직접 API 호출 실패 시 Netlify Function 시도
+      console.warn('⚠️ 직접 API 호출 실패, Netlify Function 시도:', directApiError.message);
+      
+      try {
+        response = await fetch(apiUrl);
         
-        // 사용자에게 안내
-        const useDirectApi = confirm('로컬 개발 환경에서는 Netlify Function이 작동하지 않을 수 있습니다.\n\n직접 NEIS API를 호출하려면 API 키가 필요합니다.\n\n계속하시겠습니까?');
-        
-        if (!useDirectApi) {
-          throw new Error('검색이 취소되었습니다.');
+        // Content-Type 확인
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Netlify Function이 작동하지 않습니다.');
         }
-        
-        const apiKey = prompt('NEIS API 키를 입력해주세요:');
-        if (!apiKey || apiKey.trim() === '') {
-          throw new Error('API 키가 필요합니다.');
-        }
-        
-        const directApiUrl = `https://open.neis.go.kr/hub/schoolInfo?KEY=${apiKey.trim()}&Type=json&SCHUL_NM=${encodeURIComponent(schoolName)}`;
-        console.log('🌐 직접 NEIS API 호출:', directApiUrl.replace(apiKey.trim(), 'KEY=***'));
-        
-        response = await fetch(directApiUrl);
         
         if (!response.ok) {
-          throw new Error(`NEIS API 호출 실패: ${response.status}`);
+          const errorData = await response.json().catch(() => ({ error: `HTTP 오류: ${response.status}` }));
+          throw new Error(errorData.details || errorData.error || `HTTP 오류: ${response.status}`);
         }
         
-        const neisData = await response.json();
-        
-        // 응답 파싱
-        if (neisData.RESULT && neisData.RESULT.CODE !== 'INFO-000') {
-          throw new Error(neisData.RESULT.MESSAGE || '검색 결과가 없습니다.');
-        }
-        
-        // 학교 정보 추출
-        const schools = [];
-        if (neisData.schoolInfo && Array.isArray(neisData.schoolInfo) && neisData.schoolInfo.length > 0) {
-          const schoolList = neisData.schoolInfo[1]?.row || [];
-          schools.push(...schoolList.map(school => ({
-            schoolName: school.SCHUL_NM,
-            educationOfficeCode: school.ATPT_OFCDC_SC_CODE,
-            schoolCode: school.SD_SCHUL_CODE,
-            schoolType: school.SCHUL_KND_SC_NM,
-            address: school.ORG_RDNMA
-          })));
-        }
-        
-        data = { schools: schools, count: schools.length };
-      } else {
-        throw error;
+        data = await response.json();
+      } catch (functionError) {
+        // 모든 방법 실패
+        throw new Error(`학교 검색에 실패했습니다: ${directApiError.message}`);
       }
     }
     

@@ -68,6 +68,33 @@ function getNetlifyFunctionUrl(functionName) {
   return `/.netlify/functions/${functionName}`;
 }
 
+// 사용자 학교 정보 가져오기
+async function getUserSchoolInfo() {
+  if (!currentUser || !db) {
+    return null;
+  }
+  
+  try {
+    const userRef = doc(db, 'users', currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      if (userData.educationOfficeCode && userData.schoolCode) {
+        return {
+          educationOfficeCode: userData.educationOfficeCode,
+          schoolCode: userData.schoolCode,
+          schoolName: userData.schoolName || ''
+        };
+      }
+    }
+  } catch (error) {
+    console.error('학교 정보 가져오기 오류:', error);
+  }
+  
+  return null;
+}
+
 // 오늘의 급식 메뉴 가져오기
 async function fetchTodayMenu() {
   const today = new Date();
@@ -80,63 +107,108 @@ async function fetchTodayMenu() {
     const dateStr = `${year}${month}${day}`;
     console.log('📅 조회할 날짜:', `${year}-${month}-${day}`, `(${dateStr})`);
     
-    // 항상 Netlify Function을 통해 호출
-    const functionUrl = getNetlifyFunctionUrl('neis-api');
-    const apiUrl = `${functionUrl}?date=${dateStr}`;
-    console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
-    console.log('🔍 현재 URL:', window.location.href);
-    console.log('🔍 Function URL:', functionUrl);
+    // 사용자 학교 정보 가져오기
+    const schoolInfo = await getUserSchoolInfo();
+    let response;
+    let data;
     
-    const response = await fetch(apiUrl).catch(error => {
-      console.error('❌ Fetch 오류:', error);
-      throw new Error(`네트워크 오류: ${error.message}`);
-    });
-    
-    console.log('📡 API 응답 상태:', response.status, response.statusText);
-    console.log('📡 응답 URL:', response.url);
-    
-    if (!response.ok) {
-      // 에러 응답 파싱 시도
-      let errorMessage = `HTTP 오류: ${response.status} ${response.statusText}`;
-      let errorDetails = '';
-      try {
-        const errorData = await response.json();
-        console.error('❌ API 에러 응답:', errorData);
-        if (errorData.error) {
-          errorMessage = errorData.error;
-        }
-        if (errorData.details) {
-          errorDetails = errorData.details;
-        }
-        if (errorData.missingVariables) {
-          errorDetails = `누락된 환경 변수: ${errorData.missingVariables.join(', ')}`;
-        }
-      } catch (e) {
-        const errorText = await response.text();
-        if (errorText) {
-          errorMessage = errorText;
-        }
-      }
-      console.error('❌ API 호출 실패:', errorMessage);
-      if (errorDetails) {
-        console.error('❌ 상세 오류:', errorDetails);
+    // Netlify Function을 통해 호출 시도
+    try {
+      const functionUrl = getNetlifyFunctionUrl('neis-api');
+      // 학교 정보가 있으면 쿼리 파라미터로 전달 (Function에서 사용할 수 있도록)
+      const apiUrl = schoolInfo 
+        ? `${functionUrl}?date=${dateStr}&educationOfficeCode=${schoolInfo.educationOfficeCode}&schoolCode=${schoolInfo.schoolCode}`
+        : `${functionUrl}?date=${dateStr}`;
+      console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
+      console.log('🔍 현재 URL:', window.location.href);
+      console.log('🔍 Function URL:', functionUrl);
+      
+      response = await fetch(apiUrl).catch(error => {
+        console.error('❌ Fetch 오류:', error);
+        throw new Error(`네트워크 오류: ${error.message}`);
+      });
+      
+      console.log('📡 API 응답 상태:', response.status, response.statusText);
+      console.log('📡 응답 URL:', response.url);
+      
+      // Content-Type 확인
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // Netlify Function이 작동하지 않는 경우, 직접 NEIS API 호출 시도
+        console.warn('⚠️ Netlify Function이 작동하지 않습니다. 직접 API 호출을 시도합니다.');
+        throw new Error('FALLBACK_TO_DIRECT_API');
       }
       
-      // Function에서 환경 변수 오류인 경우 기본 메뉴로 폴백
-      if (response.status === 500 && (errorMessage.includes('configuration missing') || errorMessage.includes('환경 변수'))) {
-        console.warn('⚠️ Netlify Function에 환경 변수가 설정되지 않았습니다. 기본 메뉴를 사용합니다.');
-        console.warn('💡 Netlify 대시보드에서 다음 환경 변수를 설정해주세요:');
-        console.warn('   - NEIS_API_KEY');
-        console.warn('   - NEIS_ATPT_OFCDC_SC_CODE');
-        console.warn('   - NEIS_SD_SCHUL_CODE');
-        todayMenu = getDefaultMenu();
-        return;
+      if (!response.ok) {
+        // 에러 응답 파싱 시도
+        let errorMessage = `HTTP 오류: ${response.status} ${response.statusText}`;
+        let errorDetails = '';
+        try {
+          const errorData = await response.json();
+          console.error('❌ API 에러 응답:', errorData);
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+          if (errorData.details) {
+            errorDetails = errorData.details;
+          }
+          if (errorData.missingVariables) {
+            errorDetails = `누락된 환경 변수: ${errorData.missingVariables.join(', ')}`;
+          }
+        } catch (e) {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        console.error('❌ API 호출 실패:', errorMessage);
+        if (errorDetails) {
+          console.error('❌ 상세 오류:', errorDetails);
+        }
+        
+        // Function에서 환경 변수 오류인 경우 직접 API 호출 시도
+        if (response.status === 500 && (errorMessage.includes('configuration missing') || errorMessage.includes('환경 변수'))) {
+          throw new Error('FALLBACK_TO_DIRECT_API');
+        }
+        
+        throw new Error(errorMessage + (errorDetails ? `\n${errorDetails}` : ''));
       }
       
-      throw new Error(errorMessage + (errorDetails ? `\n${errorDetails}` : ''));
+      data = await response.json();
+    } catch (error) {
+      // Netlify Function 실패 시 직접 NEIS API 호출
+      if (error.message === 'FALLBACK_TO_DIRECT_API' || error.message.includes('Failed to fetch')) {
+        console.log('🔄 직접 NEIS API 호출 시도...');
+        
+        // 학교 정보가 없으면 오류
+        if (!schoolInfo) {
+          console.warn('⚠️ 학교 정보가 없습니다. 기본 메뉴를 사용합니다.');
+          todayMenu = getDefaultMenu();
+          return;
+        }
+        
+        // .env에서 API 키 가져오기
+        const apiKey = import.meta.env.VITE_NEIS_API_KEY;
+        if (!apiKey || apiKey.trim() === '') {
+          console.warn('⚠️ NEIS API 키가 설정되지 않았습니다. 기본 메뉴를 사용합니다.');
+          todayMenu = getDefaultMenu();
+          return;
+        }
+        
+        const directApiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey.trim()}&Type=json&ATPT_OFCDC_SC_CODE=${schoolInfo.educationOfficeCode}&SD_SCHUL_CODE=${schoolInfo.schoolCode}&MLSV_YMD=${dateStr}`;
+        console.log('🌐 직접 NEIS API 호출:', directApiUrl.replace(apiKey.trim(), 'KEY=***'));
+        
+        response = await fetch(directApiUrl);
+        
+        if (!response.ok) {
+          throw new Error(`NEIS API 호출 실패: ${response.status}`);
+        }
+        
+        data = await response.json();
+      } else {
+        throw error;
+      }
     }
-    
-    const data = await response.json();
     console.log('📦 NEIS API 응답 데이터:', JSON.stringify(data, null, 2));
     
     // API 응답 파싱
@@ -423,12 +495,16 @@ async function callChatGPTAPI(userMessage) {
 
   // 알레르기 위험 메뉴 확인 (컨디션 질문 후에만 별도로 안내하므로 여기서는 시스템 프롬프트에 포함하지 않음)
   const dangerousMenus = userAllergies && userAllergies.length > 0 ? checkAllergyInMenu() : [];
+  
+  // 학교 정보 가져오기
+  const schoolInfo = await getUserSchoolInfo();
 
   try {
     const messages = [
           {
             role: 'system',
             content: `당신은 학교 급식 관리 챗봇입니다. 학생들과 친근하고 따뜻하게 대화하며 오늘의 급식에 대해 이야기합니다.
+${schoolInfo ? `\n학생의 학교: ${schoolInfo.schoolName || '등록된 학교'}` : ''}
 
 **매우 중요: 말투 및 어휘 사용 규칙**
 - 반드시 반말을 사용하세요. ("~해", "~야", "~지" 등)
@@ -634,6 +710,13 @@ function formatMenuList() {
 
 // 챗봇 시작
 async function startChatbot() {
+  // 학교 정보 확인
+  const schoolInfo = await getUserSchoolInfo();
+  if (!schoolInfo) {
+    addChatMessage('bot', '학교 정보가 등록되지 않았어. 내정보 탭에서 학교를 등록해줘.');
+    return;
+  }
+  
   // 먼저 오늘의 급식 메뉴를 가져옴 (API에서 실제 메뉴 가져오기)
   await fetchTodayMenu();
   
@@ -647,8 +730,9 @@ async function startChatbot() {
     return;
   }
   
-  // 첫 번째 메시지: 자연스러운 인사
-  const greetingMessage = '안녕 나는 밥풀이야. 오늘 점심메뉴가 궁금하지?';
+  // 첫 번째 메시지: 자연스러운 인사 (학교 정보 포함)
+  const schoolName = schoolInfo.schoolName || '우리 학교';
+  const greetingMessage = `안녕 나는 밥풀이야. ${schoolName}의 오늘 점심메뉴가 궁금하지?`;
   addChatMessage('bot', greetingMessage);
   
   // 잠시 후 메뉴 표시 (API에서 가져온 실제 메뉴만 표시)
