@@ -887,31 +887,71 @@ async function saveSchoolInfo() {
     return;
   }
   
+  if (!db) {
+    console.error('❌ Firebase가 초기화되지 않았습니다.');
+    alert('데이터베이스 연결 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+    return;
+  }
+  
   const schoolName = schoolNameInput.value.trim();
   const educationOfficeCode = educationOfficeCodeInput.value.trim().toUpperCase();
   const schoolCode = schoolCodeInput.value.trim();
   
   if (!schoolName || !educationOfficeCode || !schoolCode) {
-    alert('모든 필드를 입력해주세요.');
+    alert('학교를 검색하고 선택해주세요.');
     return;
   }
   
   try {
+    console.log('💾 학교 정보 저장 시작:', {
+      schoolName,
+      educationOfficeCode,
+      schoolCode,
+      userId: currentUser.uid
+    });
+    
     const userRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userRef, {
+    const schoolData = {
       schoolName: schoolName,
       educationOfficeCode: educationOfficeCode,
       schoolCode: schoolCode,
-      schoolInfoUpdatedAt: serverTimestamp()
-    }, { merge: true });
+      schoolInfoUpdatedAt: serverTimestamp(),
+      userId: currentUser.uid,
+      userEmail: currentUser.email,
+      userName: currentUser.displayName || '익명'
+    };
+    
+    await setDoc(userRef, schoolData, { merge: true });
     
     console.log('✅ 학교 정보가 저장되었습니다.');
     alert('✅ 학교 정보가 저장되었습니다!');
     
+    // 저장된 정보 표시
     await loadSavedSchoolInfo();
+    
+    // 검색 결과 숨기기
+    schoolSearchResults.style.display = 'none';
+    schoolSearchResults.innerHTML = '';
+    
   } catch (error) {
-    console.error('학교 정보 저장 오류:', error);
-    alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    console.error('❌ 학교 정보 저장 오류:', error);
+    console.error('오류 상세:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // 더 자세한 오류 메시지 제공
+    let errorMessage = '저장 중 오류가 발생했습니다.';
+    if (error.code === 'permission-denied') {
+      errorMessage = '저장 권한이 없습니다. 로그인 상태를 확인해주세요.';
+    } else if (error.code === 'unavailable') {
+      errorMessage = '네트워크 연결을 확인해주세요.';
+    } else if (error.message) {
+      errorMessage = `저장 오류: ${error.message}`;
+    }
+    
+    alert(errorMessage);
   }
 }
 
