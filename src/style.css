@@ -195,6 +195,84 @@ body {
   margin-top: 15px;
 }
 
+/* 역할 선택 스타일 */
+.role-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin: 30px 0;
+}
+
+.role-btn {
+  flex: 1;
+  max-width: 200px;
+  padding: 30px 20px;
+  border: 3px solid var(--border-color);
+  border-radius: 15px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.role-btn:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(255, 140, 105, 0.3);
+}
+
+.role-icon {
+  font-size: 48px;
+}
+
+.role-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.selected-role-info {
+  margin-bottom: 20px;
+  font-size: 18px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.back-to-role-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: var(--border-color);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-to-role-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+.logo-container {
+  position: relative;
+}
+
+.main-logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 10px;
+}
+
 /* 학생 페이지 */
 .student-container {
   max-width: 900px;
