@@ -1,21 +1,10 @@
 // 기록 관리 페이지
 import { auth, db } from './firebaseConfig.js';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs, orderBy, updateDoc } from 'firebase/firestore';
 
 // DOM 요소
 const backBtn = document.getElementById('back-btn');
-const schoolNameInput = document.getElementById('school-name-input');
-const educationOfficeCodeInput = document.getElementById('education-office-code-input');
-const schoolCodeInput = document.getElementById('school-code-input');
-const searchSchoolBtn = document.getElementById('search-school-btn');
-const schoolSearchResults = document.getElementById('school-search-results');
-const saveSchoolBtn = document.getElementById('save-school-btn');
-const editSchoolBtn = document.getElementById('edit-school-btn');
-const savedSchoolInfo = document.getElementById('saved-school-info');
-const savedSchoolName = document.getElementById('saved-school-name');
-const savedEducationOfficeCode = document.getElementById('saved-education-office-code');
-const savedSchoolCode = document.getElementById('saved-school-code');
 const heightInput = document.getElementById('height-input');
 const weightInput = document.getElementById('weight-input');
 const targetWeightInput = document.getElementById('target-weight-input');
@@ -287,29 +276,7 @@ async function loadSavedRecord() {
       savedTargetWeight.textContent = data.targetWeight || '-';
       savedAge.textContent = data.age || '-';
       savedGender.textContent = data.gender === 'male' ? '남성' : '여성';
-      
-      // BMI 표시 및 정상 범주 확인
-      if (data.bmi) {
-        savedBmi.textContent = data.bmi.toFixed(1);
-        // 정상 범주 (18.5 ~ 23) 확인
-        if (data.bmi >= 18.5 && data.bmi < 23) {
-          savedBmi.style.color = '#7ED321';
-          savedBmi.style.fontWeight = '700';
-          savedBmi.style.fontSize = '18px';
-          savedBmi.setAttribute('data-bmi-status', 'normal');
-        } else {
-          savedBmi.style.color = '';
-          savedBmi.style.fontWeight = '';
-          savedBmi.style.fontSize = '';
-          savedBmi.removeAttribute('data-bmi-status');
-        }
-      } else {
-        savedBmi.textContent = '-';
-        savedBmi.style.color = '';
-        savedBmi.style.fontWeight = '';
-        savedBmi.style.fontSize = '';
-      }
-      
+      savedBmi.textContent = data.bmi ? data.bmi.toFixed(1) : '-';
       savedBmr.textContent = data.bmr ? Math.round(data.bmr) : '-';
       
       // 알레르기 정보 표시
@@ -401,11 +368,9 @@ if (saveAllergyBtn) {
 }
 
 // 돌아가기 버튼
-if (backBtn) {
-  backBtn.addEventListener('click', () => {
-    window.location.href = '/index.html';
-  });
-}
+backBtn.addEventListener('click', () => {
+  window.location.href = '/index.html';
+});
 
 // 날짜별 기록 데이터 불러오기
 async function loadChartData() {
@@ -628,9 +593,11 @@ async function loadMonthlyFoodRecords() {
     
     // 날짜별로 그룹화하고 해당 월의 데이터만 필터링
     const recordsByDate = {};
-    querySnapshot.forEach(doc => {
-      const data = doc.data();
+    const docIdsByDate = {}; // 문서 ID 저장용
+    querySnapshot.forEach(docSnapshot => {
+      const data = docSnapshot.data();
       const date = data.date;
+      const docId = docSnapshot.id;
       
       // 해당 월의 데이터만 포함
       if (date >= startDateStr && date <= endDateStr) {
@@ -639,12 +606,18 @@ async function loadMonthlyFoodRecords() {
             lunch: null,
             snack: null
           };
+          docIdsByDate[date] = {
+            lunch: null,
+            snack: null
+          };
         }
         
         if (data.type === 'lunch') {
           recordsByDate[date].lunch = data;
+          docIdsByDate[date].lunch = docId;
         } else if (data.type === 'snack') {
           recordsByDate[date].snack = data;
+          docIdsByDate[date].snack = docId;
         }
       }
     });
@@ -662,17 +635,21 @@ async function loadMonthlyFoodRecords() {
     
     sortedDates.forEach(date => {
       const records = recordsByDate[date];
+      const docIds = docIdsByDate[date];
       const dateObj = new Date(date);
       const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][dateObj.getDay()];
       const formattedDate = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${dayOfWeek})`;
       
-      html += `<div class="daily-food-record" style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 2px solid var(--border-color);">`;
+      html += `<div class="daily-food-record" data-date="${date}" style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 2px solid var(--border-color);">`;
       html += `<h4 style="margin-bottom: 15px; color: var(--text-color);">📅 ${formattedDate}</h4>`;
       
       // 점심 기록
       if (records.lunch) {
-        html += `<div style="margin-bottom: 15px;">`;
+        html += `<div style="margin-bottom: 15px; position: relative;">`;
+        html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">`;
         html += `<strong style="color: var(--primary-color);">🍱 점심:</strong>`;
+        html += `<button class="edit-lunch-btn" data-date="${date}" data-doc-id="${docIds.lunch}" style="background: var(--primary-color); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">수정</button>`;
+        html += `</div>`;
         html += `<ul style="margin-top: 8px; padding-left: 20px;">`;
         
         if (records.lunch.menuItems && records.lunch.menuItems.length > 0) {
@@ -693,8 +670,11 @@ async function loadMonthlyFoodRecords() {
       
       // 간식 기록
       if (records.snack) {
-        html += `<div>`;
+        html += `<div style="position: relative;">`;
+        html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">`;
         html += `<strong style="color: var(--secondary-color);">🍪 간식:</strong>`;
+        html += `<button class="edit-snack-btn" data-date="${date}" data-doc-id="${docIds.snack}" style="background: var(--secondary-color); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">수정</button>`;
+        html += `</div>`;
         html += `<ul style="margin-top: 8px; padding-left: 20px;">`;
         
         if (records.snack.snacks && records.snack.snacks.length > 0) {
@@ -719,314 +699,422 @@ async function loadMonthlyFoodRecords() {
     
     foodRecordsContainer.innerHTML = html;
     
+    // 수정 버튼 이벤트 리스너 추가
+    setupEditButtons();
+    
   } catch (error) {
     console.error('월별 음식 기록 불러오기 오류:', error);
     foodRecordsContainer.innerHTML = `<p style="color: red;">기록을 불러오는 중 오류가 발생했습니다: ${error.message}</p>`;
   }
 }
 
+// 수정 버튼 이벤트 리스너 설정
+function setupEditButtons() {
+  // 점심 수정 버튼
+  document.querySelectorAll('.edit-lunch-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const date = e.target.dataset.date;
+      const docId = e.target.dataset.docId;
+      await openEditLunchModal(date, docId);
+    });
+  });
+  
+  // 간식 수정 버튼
+  document.querySelectorAll('.edit-snack-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const date = e.target.dataset.date;
+      const docId = e.target.dataset.docId;
+      await openEditSnackModal(date, docId);
+    });
+  });
+}
+
+// 점심 수정 모달 열기
+async function openEditLunchModal(date, docId) {
+  try {
+    // 기존 기록 불러오기
+    const docRef = doc(db, 'foodRecords', docId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      alert('기록을 찾을 수 없습니다.');
+      return;
+    }
+    
+    const recordData = docSnap.data();
+    const menuItems = recordData.menuItems || [];
+    
+    // 모달에 데이터 표시
+    const lunchMenuEditList = document.getElementById('lunch-menu-edit-list');
+    lunchMenuEditList.innerHTML = '';
+    
+    // 각 메뉴 아이템의 칼로리 정보 저장 (기존 기록에서 가져오거나 추정)
+    const menuCaloriesMap = {};
+    
+    menuItems.forEach(item => {
+      // 기존 기록에 칼로리 정보가 있으면 사용, 없으면 추정
+      const itemCalories = item.calories ? (item.calories / item.count) : estimateCalories(item.name);
+      menuCaloriesMap[item.name] = itemCalories;
+      
+      const menuItemDiv = document.createElement('div');
+      menuItemDiv.className = 'menu-item';
+      menuItemDiv.style.marginBottom = '10px';
+      menuItemDiv.style.display = 'flex';
+      menuItemDiv.style.justifyContent = 'space-between';
+      menuItemDiv.style.alignItems = 'center';
+      menuItemDiv.innerHTML = `
+        <span style="flex: 1;">${item.name}</span>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <button class="count-btn minus" data-menu="${item.name}">-</button>
+          <input type="number" class="count-input" id="edit-count-${item.name}" 
+                 value="${item.count}" min="0" max="10" 
+                 data-menu="${item.name}" data-calories="${itemCalories}" style="width: 60px; text-align: center;" />
+          <button class="count-btn plus" data-menu="${item.name}">+</button>
+        </div>
+      `;
+      lunchMenuEditList.appendChild(menuItemDiv);
+    });
+    
+    // 모달에 칼로리 맵 저장
+    const modal = document.getElementById('edit-lunch-modal');
+    modal.dataset.menuCalories = JSON.stringify(menuCaloriesMap);
+    
+    // 버튼 이벤트 리스너
+    lunchMenuEditList.querySelectorAll('.count-btn.plus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const menuName = e.target.dataset.menu;
+        const input = document.getElementById(`edit-count-${menuName}`);
+        const currentValue = parseInt(input.value) || 0;
+        if (currentValue < 10) {
+          input.value = currentValue + 1;
+          updateLunchEditCalories();
+        }
+      });
+    });
+    
+    lunchMenuEditList.querySelectorAll('.count-btn.minus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const menuName = e.target.dataset.menu;
+        const input = document.getElementById(`edit-count-${menuName}`);
+        const currentValue = parseInt(input.value) || 0;
+        if (currentValue > 0) {
+          input.value = currentValue - 1;
+          updateLunchEditCalories();
+        }
+      });
+    });
+    
+    lunchMenuEditList.querySelectorAll('.count-input').forEach(input => {
+      input.addEventListener('change', () => {
+        updateLunchEditCalories();
+      });
+    });
+    
+    // 총 칼로리 계산
+    updateLunchEditCalories();
+    
+    // 모달 표시
+    const modal = document.getElementById('edit-lunch-modal');
+    modal.dataset.date = date;
+    modal.dataset.docId = docId;
+    modal.classList.remove('hidden');
+    
+  } catch (error) {
+    console.error('점심 기록 불러오기 오류:', error);
+    alert('기록을 불러오는 중 오류가 발생했습니다.');
+  }
+}
+
+// 간식 수정 모달 열기
+async function openEditSnackModal(date, docId) {
+  try {
+    // 기존 기록 불러오기
+    const docRef = doc(db, 'foodRecords', docId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      alert('기록을 찾을 수 없습니다.');
+      return;
+    }
+    
+    const recordData = docSnap.data();
+    const snacks = recordData.snacks || [];
+    
+    // 모달에 데이터 표시
+    const snackEditList = document.getElementById('snack-edit-list');
+    snackEditList.innerHTML = '';
+    
+    snacks.forEach((snack, index) => {
+      const snackItem = document.createElement('div');
+      snackItem.className = 'food-item';
+      snackItem.style.display = 'flex';
+      snackItem.style.justifyContent = 'space-between';
+      snackItem.style.alignItems = 'center';
+      snackItem.style.marginBottom = '8px';
+      snackItem.innerHTML = `
+        <span>${snack}</span>
+        <button class="remove-btn" data-index="${index}" style="background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">삭제</button>
+      `;
+      snackEditList.appendChild(snackItem);
+    });
+    
+    // 삭제 버튼 이벤트 리스너
+    snackEditList.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(e.target.dataset.index);
+        const snackItems = Array.from(snackEditList.children);
+        snackItems[index].remove();
+      });
+    });
+    
+    // 모달 표시
+    const modal = document.getElementById('edit-snack-modal');
+    modal.dataset.date = date;
+    modal.dataset.docId = docId;
+    modal.classList.remove('hidden');
+    
+  } catch (error) {
+    console.error('간식 기록 불러오기 오류:', error);
+    alert('기록을 불러오는 중 오류가 발생했습니다.');
+  }
+}
+
+// 점심 수정 모달의 총 칼로리 업데이트
+function updateLunchEditCalories() {
+  const modal = document.getElementById('edit-lunch-modal');
+  const menuCaloriesMap = JSON.parse(modal.dataset.menuCalories || '{}');
+  const menuItems = [];
+  const lunchMenuEditList = document.getElementById('lunch-menu-edit-list');
+  
+  lunchMenuEditList.querySelectorAll('.menu-item').forEach(item => {
+    const menuName = item.querySelector('span').textContent;
+    const countInput = document.getElementById(`edit-count-${menuName}`);
+    const count = parseInt(countInput.value) || 0;
+    
+    if (count > 0) {
+      menuItems.push({ name: menuName, count: count });
+    }
+  });
+  
+  // 총 칼로리 계산 (기존 기록의 칼로리 정보 사용)
+  let totalCalories = 0;
+  menuItems.forEach(item => {
+    // 각 메뉴 아이템의 칼로리는 저장된 맵에서 가져오거나 추정
+    const itemCalories = menuCaloriesMap[item.name] || estimateCalories(item.name);
+    totalCalories += itemCalories * item.count;
+  });
+  
+  document.getElementById('lunch-edit-total-calories').textContent = Math.round(totalCalories);
+}
+
+// 간단한 칼로리 추정 함수
+function estimateCalories(menuName) {
+  const lowerName = menuName.toLowerCase();
+  
+  if (lowerName.includes('밥')) return 210;
+  if (lowerName.includes('국') || lowerName.includes('탕')) return 50;
+  if (lowerName.includes('찌개') || lowerName.includes('전골')) return 120;
+  if (lowerName.includes('나물') || lowerName.includes('무침')) return 30;
+  if (lowerName.includes('볶음')) return 150;
+  if (lowerName.includes('구이') || lowerName.includes('조림')) return 180;
+  if (lowerName.includes('튀김')) return 200;
+  if (lowerName.includes('김치')) return 15;
+  
+  return 100;
+}
+
+// 점심 수정 저장
+async function saveLunchEdit() {
+  const modal = document.getElementById('edit-lunch-modal');
+  const date = modal.dataset.date;
+  const docId = modal.dataset.docId;
+  
+  if (!date || !docId) {
+    alert('오류가 발생했습니다.');
+    return;
+  }
+  
+  try {
+    // 수정된 메뉴 아이템 수집
+    const modal = document.getElementById('edit-lunch-modal');
+    const menuCaloriesMap = JSON.parse(modal.dataset.menuCalories || '{}');
+    const menuItems = [];
+    const lunchMenuEditList = document.getElementById('lunch-menu-edit-list');
+    
+    lunchMenuEditList.querySelectorAll('.menu-item').forEach(item => {
+      const menuName = item.querySelector('span').textContent;
+      const countInput = document.getElementById(`edit-count-${menuName}`);
+      const count = parseInt(countInput.value) || 0;
+      
+      if (count > 0) {
+        // 저장된 칼로리 정보 사용 또는 추정
+        const itemCalories = menuCaloriesMap[menuName] || estimateCalories(menuName);
+        menuItems.push({
+          name: menuName,
+          count: count,
+          calories: itemCalories * count
+        });
+      }
+    });
+    
+    // 총 칼로리 계산
+    const totalCalories = menuItems.reduce((sum, item) => sum + item.calories, 0);
+    
+    // records 객체 생성
+    const records = {};
+    menuItems.forEach(item => {
+      records[item.name] = item.count;
+    });
+    
+    // Firebase 업데이트
+    const docRef = doc(db, 'foodRecords', docId);
+    await updateDoc(docRef, {
+      menuItems: menuItems,
+      records: records,
+      totalCalories: Math.round(totalCalories),
+      updatedAt: serverTimestamp()
+    });
+    
+    alert('✅ 점심 기록이 수정되었습니다!');
+    modal.classList.add('hidden');
+    
+    // 기록 다시 불러오기
+    await loadMonthlyFoodRecords();
+    
+  } catch (error) {
+    console.error('점심 기록 수정 오류:', error);
+    alert('기록 수정 중 오류가 발생했습니다.');
+  }
+}
+
+// 간식 수정 저장
+async function saveSnackEdit() {
+  const modal = document.getElementById('edit-snack-modal');
+  const date = modal.dataset.date;
+  const docId = modal.dataset.docId;
+  
+  if (!date || !docId) {
+    alert('오류가 발생했습니다.');
+    return;
+  }
+  
+  try {
+    // 수정된 간식 목록 수집
+    const snackEditList = document.getElementById('snack-edit-list');
+    const snacks = [];
+    
+    snackEditList.querySelectorAll('.food-item').forEach(item => {
+      const snackName = item.querySelector('span').textContent.trim();
+      if (snackName) {
+        snacks.push(snackName);
+      }
+    });
+    
+    // Firebase 업데이트
+    const docRef = doc(db, 'foodRecords', docId);
+    await updateDoc(docRef, {
+      snacks: snacks,
+      count: snacks.length,
+      updatedAt: serverTimestamp()
+    });
+    
+    alert('✅ 간식 기록이 수정되었습니다!');
+    modal.classList.add('hidden');
+    
+    // 기록 다시 불러오기
+    await loadMonthlyFoodRecords();
+    
+  } catch (error) {
+    console.error('간식 기록 수정 오류:', error);
+    alert('기록 수정 중 오류가 발생했습니다.');
+  }
+}
+
+// 모달 닫기 및 이벤트 리스너 설정
+document.addEventListener('DOMContentLoaded', () => {
+  // 점심 모달 닫기
+  const closeLunchModal = document.getElementById('close-lunch-modal');
+  const cancelLunchEditBtn = document.getElementById('cancel-lunch-edit-btn');
+  const saveLunchEditBtn = document.getElementById('save-lunch-edit-btn');
+  
+  if (closeLunchModal) {
+    closeLunchModal.addEventListener('click', () => {
+      document.getElementById('edit-lunch-modal').classList.add('hidden');
+    });
+  }
+  
+  if (cancelLunchEditBtn) {
+    cancelLunchEditBtn.addEventListener('click', () => {
+      document.getElementById('edit-lunch-modal').classList.add('hidden');
+    });
+  }
+  
+  if (saveLunchEditBtn) {
+    saveLunchEditBtn.addEventListener('click', saveLunchEdit);
+  }
+  
+  // 간식 모달 닫기
+  const closeSnackModal = document.getElementById('close-snack-modal');
+  const cancelSnackEditBtn = document.getElementById('cancel-snack-edit-btn');
+  const saveSnackEditBtn = document.getElementById('save-snack-edit-btn');
+  const snackEditInput = document.getElementById('snack-edit-input');
+  const addSnackEditBtn = document.getElementById('add-snack-edit-btn');
+  
+  if (closeSnackModal) {
+    closeSnackModal.addEventListener('click', () => {
+      document.getElementById('edit-snack-modal').classList.add('hidden');
+    });
+  }
+  
+  if (cancelSnackEditBtn) {
+    cancelSnackEditBtn.addEventListener('click', () => {
+      document.getElementById('edit-snack-modal').classList.add('hidden');
+    });
+  }
+  
+  if (saveSnackEditBtn) {
+    saveSnackEditBtn.addEventListener('click', saveSnackEdit);
+  }
+  
+  // 간식 추가 버튼
+  if (addSnackEditBtn && snackEditInput) {
+    addSnackEditBtn.addEventListener('click', () => {
+      const snackName = snackEditInput.value.trim();
+      if (!snackName) return;
+      
+      const snackEditList = document.getElementById('snack-edit-list');
+      const snackItem = document.createElement('div');
+      snackItem.className = 'food-item';
+      snackItem.style.display = 'flex';
+      snackItem.style.justifyContent = 'space-between';
+      snackItem.style.alignItems = 'center';
+      snackItem.style.marginBottom = '8px';
+      const index = snackEditList.children.length;
+      snackItem.innerHTML = `
+        <span>${snackName}</span>
+        <button class="remove-btn" data-index="${index}" style="background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">삭제</button>
+      `;
+      snackEditList.appendChild(snackItem);
+      snackEditInput.value = '';
+      
+      // 삭제 버튼 이벤트 리스너
+      snackItem.querySelector('.remove-btn').addEventListener('click', (e) => {
+        snackItem.remove();
+      });
+    });
+    
+    snackEditInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addSnackEditBtn.click();
+      }
+    });
+  }
+});
+
 // 월별 음식 기록 불러오기 버튼 클릭
 if (loadFoodRecordsBtn) {
   loadFoodRecordsBtn.addEventListener('click', async () => {
     await loadMonthlyFoodRecords();
-  });
-}
-
-// Netlify Functions URL 헬퍼 함수
-function getNetlifyFunctionUrl(functionName) {
-  return `/.netlify/functions/${functionName}`;
-}
-
-// 학교 정보 검색
-async function searchSchool() {
-  const schoolName = schoolNameInput.value.trim();
-  
-  if (!schoolName) {
-    alert('학교 이름을 입력해주세요.');
-    return;
-  }
-  
-  try {
-    searchSchoolBtn.disabled = true;
-    searchSchoolBtn.textContent = '검색 중...';
-    schoolSearchResults.style.display = 'none';
-    
-    const functionUrl = getNetlifyFunctionUrl('school-search');
-    const apiUrl = `${functionUrl}?schoolName=${encodeURIComponent(schoolName)}`;
-    
-    console.log('🔍 학교 정보 검색:', apiUrl);
-    
-    let response;
-    let data;
-    
-    // 먼저 직접 NEIS API 호출 시도 (.env의 API 키 사용)
-    try {
-      // .env에서 API 키 가져오기
-      const apiKey = import.meta.env.VITE_NEIS_API_KEY;
-      if (!apiKey || apiKey.trim() === '') {
-        throw new Error('NEIS API 키가 설정되지 않았습니다. .env 파일에 VITE_NEIS_API_KEY를 설정해주세요.');
-      }
-      
-      console.log('🔄 직접 NEIS API 호출 시도...');
-      const directApiUrl = `https://open.neis.go.kr/hub/schoolInfo?KEY=${apiKey.trim()}&Type=json&SCHUL_NM=${encodeURIComponent(schoolName)}`;
-      console.log('🌐 직접 NEIS API 호출:', directApiUrl.replace(apiKey.trim(), 'KEY=***'));
-      
-      response = await fetch(directApiUrl);
-      
-      if (!response.ok) {
-        throw new Error(`NEIS API 호출 실패: ${response.status}`);
-      }
-      
-      const neisData = await response.json();
-      
-      // 응답 파싱
-      if (neisData.RESULT && neisData.RESULT.CODE !== 'INFO-000') {
-        throw new Error(neisData.RESULT.MESSAGE || '검색 결과가 없습니다.');
-      }
-      
-      // 학교 정보 추출
-      const schools = [];
-      if (neisData.schoolInfo && Array.isArray(neisData.schoolInfo) && neisData.schoolInfo.length > 0) {
-        const schoolList = neisData.schoolInfo[1]?.row || [];
-        schools.push(...schoolList.map(school => ({
-          schoolName: school.SCHUL_NM,
-          educationOfficeCode: school.ATPT_OFCDC_SC_CODE,
-          schoolCode: school.SD_SCHUL_CODE,
-          schoolType: school.SCHUL_KND_SC_NM,
-          address: school.ORG_RDNMA
-        })));
-      }
-      
-      data = { schools: schools, count: schools.length };
-    } catch (directApiError) {
-      // 직접 API 호출 실패 시 Netlify Function 시도
-      console.warn('⚠️ 직접 API 호출 실패, Netlify Function 시도:', directApiError.message);
-      
-      try {
-        response = await fetch(apiUrl);
-        
-        // Content-Type 확인
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Netlify Function이 작동하지 않습니다.');
-        }
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: `HTTP 오류: ${response.status}` }));
-          throw new Error(errorData.details || errorData.error || `HTTP 오류: ${response.status}`);
-        }
-        
-        data = await response.json();
-      } catch (functionError) {
-        // 모든 방법 실패
-        throw new Error(`학교 검색에 실패했습니다: ${directApiError.message}`);
-      }
-    }
-    
-    if (data.error) {
-      schoolSearchResults.innerHTML = `<p style="color: red; font-size: 14px;">${data.details || data.error}</p>`;
-      schoolSearchResults.style.display = 'block';
-      return;
-    }
-    
-    if (!data.schools || data.schools.length === 0) {
-      schoolSearchResults.innerHTML = `<p style="color: var(--text-light); font-size: 14px;">검색 결과가 없습니다. 학교 이름을 다시 확인해주세요.</p>`;
-      schoolSearchResults.style.display = 'block';
-      return;
-    }
-    
-    // 검색 결과 표시
-    let resultsHTML = '<div style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px;">';
-    resultsHTML += `<p style="font-weight: 600; margin-bottom: 8px;">검색 결과 (${data.schools.length}개)</p>`;
-    
-    data.schools.forEach((school, index) => {
-      resultsHTML += `
-        <div style="padding: 10px; margin-bottom: 8px; background: white; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;" 
-             onmouseover="this.style.borderColor='var(--primary-color)';" 
-             onmouseout="this.style.borderColor='transparent';"
-             onclick="selectSchool('${school.schoolName}', '${school.educationOfficeCode}', '${school.schoolCode}')">
-          <div style="font-weight: 600; color: var(--primary-color);">${school.schoolName}</div>
-          <div style="font-size: 12px; color: var(--text-light); margin-top: 4px;">
-            ${school.schoolType || ''} | ${school.address || ''}
-          </div>
-          <div style="font-size: 11px; color: var(--text-light); margin-top: 2px;">
-            교육청: ${school.educationOfficeCode} | 학교코드: ${school.schoolCode}
-          </div>
-        </div>
-      `;
-    });
-    
-    resultsHTML += '</div>';
-    schoolSearchResults.innerHTML = resultsHTML;
-    schoolSearchResults.style.display = 'block';
-    
-  } catch (error) {
-    console.error('학교 검색 오류:', error);
-    schoolSearchResults.innerHTML = `<p style="color: red; font-size: 14px;">검색 중 오류가 발생했습니다: ${error.message}</p>`;
-    schoolSearchResults.style.display = 'block';
-  } finally {
-    searchSchoolBtn.disabled = false;
-    searchSchoolBtn.textContent = '찾기';
-  }
-}
-
-// 학교 선택 함수 (전역 함수로 등록)
-window.selectSchool = function(schoolName, educationOfficeCode, schoolCode) {
-  schoolNameInput.value = schoolName;
-  educationOfficeCodeInput.value = educationOfficeCode;
-  schoolCodeInput.value = schoolCode;
-  schoolSearchResults.style.display = 'none';
-  schoolSearchResults.innerHTML = '';
-};
-
-// 학교 정보 저장
-async function saveSchoolInfo() {
-  if (!currentUser) {
-    alert('로그인이 필요합니다.');
-    window.location.href = '/index.html';
-    return;
-  }
-  
-  if (!db) {
-    console.error('❌ Firebase가 초기화되지 않았습니다.');
-    alert('데이터베이스 연결 오류가 발생했습니다. 페이지를 새로고침해주세요.');
-    return;
-  }
-  
-  const schoolName = schoolNameInput.value.trim();
-  const educationOfficeCode = educationOfficeCodeInput.value.trim().toUpperCase();
-  const schoolCode = schoolCodeInput.value.trim();
-  
-  if (!schoolName || !educationOfficeCode || !schoolCode) {
-    alert('학교를 검색하고 선택해주세요.');
-    return;
-  }
-  
-  try {
-    console.log('💾 학교 정보 저장 시작:', {
-      schoolName,
-      educationOfficeCode,
-      schoolCode,
-      userId: currentUser.uid
-    });
-    
-    const userRef = doc(db, 'users', currentUser.uid);
-    const schoolData = {
-      schoolName: schoolName,
-      educationOfficeCode: educationOfficeCode,
-      schoolCode: schoolCode,
-      schoolInfoUpdatedAt: serverTimestamp(),
-      userId: currentUser.uid,
-      userEmail: currentUser.email,
-      userName: currentUser.displayName || '익명'
-    };
-    
-    await setDoc(userRef, schoolData, { merge: true });
-    
-    console.log('✅ 학교 정보가 저장되었습니다.');
-    alert('✅ 학교 정보가 저장되었습니다!');
-    
-    // 저장된 정보 표시
-    await loadSavedSchoolInfo();
-    
-    // 검색 결과 숨기기
-    schoolSearchResults.style.display = 'none';
-    schoolSearchResults.innerHTML = '';
-    
-  } catch (error) {
-    console.error('❌ 학교 정보 저장 오류:', error);
-    console.error('오류 상세:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    });
-    
-    // 더 자세한 오류 메시지 제공
-    let errorMessage = '저장 중 오류가 발생했습니다.';
-    if (error.code === 'permission-denied') {
-      errorMessage = '저장 권한이 없습니다. 로그인 상태를 확인해주세요.';
-    } else if (error.code === 'unavailable') {
-      errorMessage = '네트워크 연결을 확인해주세요.';
-    } else if (error.message) {
-      errorMessage = `저장 오류: ${error.message}`;
-    }
-    
-    alert(errorMessage);
-  }
-}
-
-// 저장된 학교 정보 불러오기
-async function loadSavedSchoolInfo() {
-  if (!currentUser || !db) {
-    return;
-  }
-  
-  try {
-    const userRef = doc(db, 'users', currentUser.uid);
-    const docSnap = await getDoc(userRef);
-    
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      
-      if (data.schoolName && data.educationOfficeCode && data.schoolCode) {
-        // 저장된 정보 표시
-        savedSchoolName.textContent = data.schoolName;
-        savedEducationOfficeCode.textContent = data.educationOfficeCode;
-        savedSchoolCode.textContent = data.schoolCode;
-        savedSchoolInfo.classList.remove('hidden');
-        
-        // 입력 필드 숨기기
-        schoolNameInput.closest('.meal-record').style.display = 'none';
-      } else {
-        // 저장된 정보가 없으면 입력 필드 표시
-        savedSchoolInfo.classList.add('hidden');
-        schoolNameInput.closest('.meal-record').style.display = 'block';
-      }
-    } else {
-      // 사용자 정보가 없으면 입력 필드 표시
-      savedSchoolInfo.classList.add('hidden');
-      schoolNameInput.closest('.meal-record').style.display = 'block';
-    }
-  } catch (error) {
-    console.error('학교 정보 불러오기 오류:', error);
-  }
-}
-
-// 학교 정보 수정 버튼
-if (editSchoolBtn) {
-  editSchoolBtn.addEventListener('click', () => {
-    savedSchoolInfo.classList.add('hidden');
-    schoolNameInput.closest('.meal-record').style.display = 'block';
-    
-    // 저장된 정보를 입력 필드에 채우기
-    if (savedSchoolName.textContent !== '-') {
-      schoolNameInput.value = savedSchoolName.textContent;
-      educationOfficeCodeInput.value = savedEducationOfficeCode.textContent;
-      schoolCodeInput.value = savedSchoolCode.textContent;
-    }
-  });
-}
-
-// 학교 검색 버튼
-if (searchSchoolBtn) {
-  searchSchoolBtn.addEventListener('click', async () => {
-    await searchSchool();
-  });
-  
-  // Enter 키로도 검색 가능
-  if (schoolNameInput) {
-    schoolNameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        searchSchool();
-      }
-    });
-  }
-}
-
-// 학교 정보 저장 버튼
-if (saveSchoolBtn) {
-  saveSchoolBtn.addEventListener('click', async () => {
-    await saveSchoolInfo();
   });
 }
 
@@ -1036,7 +1124,6 @@ if (auth) {
     if (user) {
       currentUser = user;
       console.log('✅ 사용자 로그인:', user.email);
-      await loadSavedSchoolInfo();
       await loadSavedRecord();
       initializeDateRange();
       initializeMonthSelector();

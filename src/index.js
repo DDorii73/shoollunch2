@@ -4,112 +4,38 @@ import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 // DOM 요소
-const roleSelectionSection = document.getElementById('role-selection-section');
-const googleLoginSection = document.getElementById('google-login-section');
-const studentRoleBtn = document.getElementById('student-role-btn');
-const teacherRoleBtn = document.getElementById('teacher-role-btn');
-const backToRoleBtn = document.getElementById('back-to-role-btn');
-const selectedRoleText = document.getElementById('selected-role-text');
 const googleLoginBtn = document.getElementById('google-login-btn');
 const loginStatus = document.getElementById('login-status');
 const userInfo = document.getElementById('user-info');
 const userName = document.getElementById('user-name');
+const enterBtn = document.getElementById('enter-btn');
 const logoutBtn = document.getElementById('logout-btn');
+const roleRadios = document.querySelectorAll('input[name="role"]');
 const navButtons = document.querySelector('.nav-buttons');
 const teacherMonitorBtn = document.getElementById('teacher-monitor-btn');
-const foodRecordBtn = document.getElementById('food-record-btn');
-const monitoringFeature = document.getElementById('monitoring-feature');
-
-// 선택된 역할 저장
-let selectedRole = null;
 
 // 초기 상태 설정
 function initializeUI() {
   // 로그인 전에는 네비게이션 버튼과 사용자 정보 숨김
-  if (navButtons) {
-    navButtons.classList.add('hidden');
-  }
+if (navButtons) {
+  navButtons.classList.add('hidden');
+}
   if (userInfo) {
     userInfo.classList.add('hidden');
   }
-  if (roleSelectionSection) {
-    roleSelectionSection.classList.remove('hidden');
-  }
-  if (googleLoginSection) {
-    googleLoginSection.classList.add('hidden');
-  }
-  if (backToRoleBtn) {
-    backToRoleBtn.classList.add('hidden');
+  if (googleLoginBtn) {
+    googleLoginBtn.style.display = 'block';
   }
   if (teacherMonitorBtn) {
     teacherMonitorBtn.classList.add('hidden');
   }
-  selectedRole = null;
-}
-
-// 역할 선택 버튼 이벤트
-if (studentRoleBtn) {
-  studentRoleBtn.addEventListener('click', () => {
-    selectedRole = 'student';
-    showGoogleLoginSection('학생');
-  });
-}
-
-if (teacherRoleBtn) {
-  teacherRoleBtn.addEventListener('click', () => {
-    selectedRole = 'teacher';
-    showGoogleLoginSection('선생님');
-  });
-}
-
-if (backToRoleBtn) {
-  backToRoleBtn.addEventListener('click', () => {
-    hideGoogleLoginSection();
-  });
-}
-
-// 구글 로그인 섹션 표시
-function showGoogleLoginSection(roleName) {
-  if (roleSelectionSection) {
-    roleSelectionSection.classList.add('hidden');
-  }
-  if (googleLoginSection) {
-    googleLoginSection.classList.remove('hidden');
-  }
-  if (backToRoleBtn) {
-    backToRoleBtn.classList.remove('hidden');
-  }
-  if (selectedRoleText) {
-    // 한국어 조사 처리: 받침이 있으면 "으로", 없으면 "로"
-    const hasConsonant = (roleName.charCodeAt(roleName.length - 1) - 0xAC00) % 28 !== 0;
-    const particle = hasConsonant ? '으로' : '로';
-    selectedRoleText.textContent = roleName + particle;
-  }
-  // 선택한 역할을 localStorage에 저장
-  localStorage.setItem('selectedRole', selectedRole);
-}
-
-// 구글 로그인 섹션 숨기기
-function hideGoogleLoginSection() {
-  if (roleSelectionSection) {
-    roleSelectionSection.classList.remove('hidden');
-  }
-  if (googleLoginSection) {
-    googleLoginSection.classList.add('hidden');
-  }
-  if (backToRoleBtn) {
-    backToRoleBtn.classList.add('hidden');
-  }
-  selectedRole = null;
-  localStorage.removeItem('selectedRole');
 }
 
 // 페이지 로드 시 초기화
 initializeUI();
 
 // Google 로그인
-if (googleLoginBtn) {
-  googleLoginBtn.addEventListener('click', async () => {
+googleLoginBtn.addEventListener('click', async () => {
   try {
     // Firebase 설정 확인
     if (!auth || !googleProvider) {
@@ -132,47 +58,24 @@ if (googleLoginBtn) {
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
       
-      // 선택한 역할 가져오기 (localStorage 또는 기본값)
-      const role = selectedRole || localStorage.getItem('selectedRole') || 'student';
-      
       if (!userSnap.exists()) {
         await setDoc(userRef, {
           email: user.email,
           displayName: user.displayName,
           photoURL: user.photoURL,
-          role: role,
+          role: 'student', // 기본값은 학생
           createdAt: new Date().toISOString()
         });
-      } else {
-        // 기존 사용자의 경우 역할 업데이트 (선택한 역할이 있는 경우)
-        if (role && userSnap.data().role !== role) {
-          await setDoc(userRef, {
-            role: role
-          }, { merge: true });
-        }
       }
-      
-      // localStorage에서 역할 제거
-      localStorage.removeItem('selectedRole');
     } catch (dbError) {
       console.warn('Firestore 저장 오류 (무시 가능):', dbError);
       // Firestore 오류는 로그인을 막지 않음
     }
     
     // 로그인 성공 후 UI 업데이트
-    await showUserInfo(user);
+    showUserInfo(user);
     showNavButtons(user);
-    // 역할 선택 및 구글 로그인 섹션 숨기기
-    if (roleSelectionSection) {
-      roleSelectionSection.classList.add('hidden');
-    }
-    if (googleLoginSection) {
-      googleLoginSection.classList.add('hidden');
-    }
-    if (backToRoleBtn) {
-      backToRoleBtn.classList.add('hidden');
-    }
-    loginStatus.textContent = '✅ 로그인 성공!';
+    loginStatus.textContent = '✅ 로그인 성공! 이제 학생 활동 또는 교사 모니터링 페이지로 이동할 수 있습니다.';
     loginStatus.className = 'success';
   } catch (error) {
     console.error('로그인 오류:', error);
@@ -220,8 +123,7 @@ if (googleLoginBtn) {
       Google로 로그인
     `;
   }
-  });
-}
+});
 
 // 로그아웃
 logoutBtn.addEventListener('click', async () => {
@@ -234,15 +136,24 @@ logoutBtn.addEventListener('click', async () => {
   }
 });
 
-// 음식 기록 버튼 클릭 시 student.html의 음식 기록 탭으로 이동
-if (foodRecordBtn) {
-  foodRecordBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    // localStorage에 플래그 설정하여 student.html에서 음식 기록 탭을 열도록 함
-    localStorage.setItem('openFoodRecordTab', 'true');
+// 입장하기 버튼
+enterBtn.addEventListener('click', () => {
+  const selectedRole = document.querySelector('input[name="role"]:checked').value;
+  const user = auth.currentUser;
+  
+  if (!user) return;
+  
+  // 선택한 역할을 Firestore에 저장
+  const userRef = doc(db, 'users', user.uid);
+  setDoc(userRef, { role: selectedRole }, { merge: true });
+  
+  // 역할에 따라 페이지 이동
+  if (selectedRole === 'student') {
     window.location.href = '/student.html';
-  });
-}
+  } else {
+    window.location.href = '/teacherMonitor.html';
+  }
+});
 
 // 네비게이션 버튼 클릭 이벤트 (로그인 및 권한 확인)
 if (navButtons) {
@@ -277,71 +188,44 @@ if (navButtons) {
 }
 
 // 사용자 정보 표시
-async function showUserInfo(user) {
-  const displayName = user.displayName || user.email;
-  userName.textContent = displayName;
+function showUserInfo(user) {
+  userName.textContent = user.displayName || user.email;
+  userInfo.classList.remove('hidden');
+  googleLoginBtn.style.display = 'none';
+  loginStatus.textContent = '';
+  loginStatus.className = '';
   
-  // 사용자 역할 가져오기
-  try {
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-    const userRole = userSnap.exists() ? userSnap.data().role : 'student';
-    
-    // 역할에 따라 인사말 변경
-    const userGreeting = document.getElementById('user-greeting');
-    if (userGreeting) {
-      if (userRole === 'teacher') {
-        userGreeting.textContent = `안녕하세요! ${displayName}선생님!`;
-      } else {
-        userGreeting.textContent = `안녕하세요! ${displayName} 학생`;
+  // Firestore에서 역할 정보 가져오기
+  const userRef = doc(db, 'users', user.uid);
+  getDoc(userRef).then(docSnap => {
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      if (userData.role) {
+        const roleRadio = document.querySelector(`input[value="${userData.role}"]`);
+        if (roleRadio) {
+          roleRadio.checked = true;
+        }
       }
     }
-  } catch (error) {
-    console.warn('사용자 역할 가져오기 실패:', error);
-    // 기본값으로 학생으로 표시
-    const userGreeting = document.getElementById('user-greeting');
-    if (userGreeting) {
-      userGreeting.textContent = `안녕하세요! ${displayName} 학생`;
-    }
-  }
-  
-  userInfo.classList.remove('hidden');
-  // 역할 선택 및 구글 로그인 섹션 숨기기
-  if (roleSelectionSection) {
-    roleSelectionSection.classList.add('hidden');
-  }
-  if (googleLoginSection) {
-    googleLoginSection.classList.add('hidden');
-  }
-  if (backToRoleBtn) {
-    backToRoleBtn.classList.add('hidden');
-  }
-  // 로그인 성공 메시지 유지
-  if (loginStatus.textContent === '' || loginStatus.textContent.includes('로그인 성공')) {
-    loginStatus.textContent = '✅ 로그인 성공!';
-    loginStatus.className = 'success';
-  }
+  });
 }
 
 // 사용자 정보 숨기기
 function hideUserInfo() {
   userInfo.classList.add('hidden');
+  googleLoginBtn.style.display = 'block';
   loginStatus.textContent = '';
   loginStatus.className = '';
-  if (googleLoginBtn) {
-    googleLoginBtn.disabled = false;
-    googleLoginBtn.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 24 24">
-        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-      </svg>
-      Google로 로그인
-    `;
-  }
-  // 역할 선택 화면으로 돌아가기
-  hideGoogleLoginSection();
+  googleLoginBtn.disabled = false;
+  googleLoginBtn.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    Google로 로그인
+  `;
 }
 
 // 네비게이션 버튼 표시
@@ -350,36 +234,14 @@ function showNavButtons(user) {
     navButtons.classList.remove('hidden');
   }
   
-  // 관리자 UID 체크 후 교사 모니터링 버튼 및 모니터링 feature 표시/숨김
-  if (user) {
+  // 관리자 UID 체크 후 교사 모니터링 버튼 표시/숨김
+  if (teacherMonitorBtn && user) {
     if (isAdmin(user.uid)) {
-      // 관리자인 경우: 모니터링 feature와 버튼 표시
-      if (teacherMonitorBtn) {
-        teacherMonitorBtn.classList.remove('hidden');
-      }
-      if (monitoringFeature) {
-        monitoringFeature.style.display = 'block';
-      }
-      // 교사 계정: 2열 2등분 레이아웃 (4개 버튼)
-      if (navButtons) {
-        navButtons.classList.add('teacher-layout');
-        navButtons.classList.remove('student-layout');
-      }
-      console.log('✅ 관리자 권한 확인: 교사 모니터링 버튼 및 feature 표시');
+      teacherMonitorBtn.classList.remove('hidden');
+      console.log('✅ 관리자 권한 확인: 교사 모니터링 버튼 표시');
     } else {
-      // 학생인 경우: 모니터링 feature와 버튼 숨김
-      if (teacherMonitorBtn) {
-        teacherMonitorBtn.classList.add('hidden');
-      }
-      if (monitoringFeature) {
-        monitoringFeature.style.display = 'none';
-      }
-      // 학생 계정: 1열 3등분 레이아웃 (3개 버튼)
-      if (navButtons) {
-        navButtons.classList.add('student-layout');
-        navButtons.classList.remove('teacher-layout');
-      }
-      console.log('ℹ️ 일반 사용자: 교사 모니터링 버튼 및 feature 숨김');
+      teacherMonitorBtn.classList.add('hidden');
+      console.log('ℹ️ 일반 사용자: 교사 모니터링 버튼 숨김');
     }
   }
 }
@@ -388,7 +250,6 @@ function showNavButtons(user) {
 function hideNavButtons() {
   if (navButtons) {
     navButtons.classList.add('hidden');
-    navButtons.classList.remove('student-layout', 'teacher-layout');
   }
   if (teacherMonitorBtn) {
     teacherMonitorBtn.classList.add('hidden');
@@ -397,11 +258,11 @@ function hideNavButtons() {
 
 // 인증 상태 감지 및 자동 UI 업데이트
 if (auth) {
-  onAuthStateChanged(auth, async (user) => {
+  onAuthStateChanged(auth, (user) => {
     if (user) {
       // 로그인된 경우
       console.log('✅ 사용자 로그인 감지:', user.email);
-      await showUserInfo(user);
+      showUserInfo(user);
       showNavButtons(user);
     } else {
       // 로그아웃된 경우
@@ -409,10 +270,6 @@ if (auth) {
       hideUserInfo();
       hideNavButtons();
       initializeUI();
-      // 역할 선택 화면 표시
-      if (roleSelectionSection) {
-        roleSelectionSection.classList.remove('hidden');
-      }
     }
   });
 } else {

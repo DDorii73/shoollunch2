@@ -2,98 +2,22 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>기록 관리 - 밥로그</title>
-  <link rel="icon" type="image/png" href="/밥로그.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기록 관리 - 급식 관리</title>
   <link rel="stylesheet" href="/src/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- 경로 자동 수정: /recordManagement로 접근하면 /recordManagement.html로 리다이렉트 (즉시 실행) -->
-  <script>
-    (function() {
-      var pathname = window.location.pathname;
-      if (pathname === '/recordManagement' || pathname === '/recordManagement/' || pathname.startsWith('/recordManagement/')) {
-        var newUrl = '/recordManagement.html' + window.location.search + window.location.hash;
-        window.location.replace(newUrl);
-      }
-    })();
-  </script>
 </head>
 <body>
   <div class="student-container">
-    <button id="home-btn" class="home-btn" onclick="window.location.href='/index.html'" title="홈으로">
-      <img src="/home.png" alt="홈으로" class="home-icon">
-    </button>
     <header class="student-header">
-      <div class="header-logo-container">
-        <img src="/밥로그.png" alt="밥로그" class="header-logo">
-        <h1>기록 관리</h1>
-      </div>
+      <h1>📋 기록 관리</h1>
+      <button id="back-btn" class="back-btn">← 돌아가기</button>
     </header>
-
-    <div class="record-header-image">
-      <img src="/밥학생.png" alt="밥학생" class="record-student-image">
-    </div>
-
-    <!-- 우리학교 등록 섹션 -->
-    <div class="record-section">
-      <div class="record-container">
-        <h2>우리학교 등록</h2>
-        <p class="meal-description">학교 정보를 입력하면 급식 정보를 가져올 수 있어요.</p>
-        
-        <div class="meal-record">
-          <div class="input-section">
-            <div class="input-group">
-              <label for="school-name-input">학교 이름</label>
-              <div style="display: flex; gap: 8px;">
-                <input type="text" id="school-name-input" placeholder="예: 서울중학교" style="flex: 1;" />
-                <button id="search-school-btn" class="search-btn" type="button">찾기</button>
-              </div>
-              <div id="school-search-results" style="margin-top: 10px; display: none;"></div>
-            </div>
-            
-            <div class="input-group" style="display: none;">
-              <label for="education-office-code-input">교육청 코드</label>
-              <input type="text" id="education-office-code-input" placeholder="예: B10 (서울특별시교육청)" maxlength="3" />
-              <small style="color: var(--text-light); font-size: 12px; margin-top: 4px; display: block;">
-                주요 교육청 코드: B10(서울), C10(부산), D10(대구), E10(인천), F10(광주), G10(대전), H10(울산), I10(세종), J10(경기), K10(강원), M10(충북), N10(충남), P10(전북), Q10(전남), R10(경북), S10(경남), T10(제주)
-              </small>
-            </div>
-            
-            <div class="input-group" style="display: none;">
-              <label for="school-code-input">학교 코드</label>
-              <input type="text" id="school-code-input" placeholder="예: 7010569" maxlength="10" />
-              <small style="color: var(--text-light); font-size: 12px; margin-top: 4px; display: block;">
-                학교 고유 코드를 입력하세요. 학교 홈페이지나 교육청 사이트에서 확인할 수 있어요.
-              </small>
-            </div>
-            
-            <button id="save-school-btn" class="submit-btn">학교 정보 저장</button>
-          </div>
-        </div>
-        
-        <div id="saved-school-info" class="meal-record hidden">
-          <h3>저장된 학교 정보</h3>
-          <div class="info-item">
-            <span>학교 이름:</span>
-            <span id="saved-school-name">-</span>
-          </div>
-          <div class="info-item">
-            <span>교육청 코드:</span>
-            <span id="saved-education-office-code">-</span>
-          </div>
-          <div class="info-item">
-            <span>학교 코드:</span>
-            <span id="saved-school-code">-</span>
-          </div>
-          <button id="edit-school-btn" class="submit-btn" style="margin-top: 15px;">학교 정보 수정</button>
-        </div>
-      </div>
-    </div>
 
     <div class="record-section">
       <div class="record-container">
         <h2>신체 정보 입력</h2>
-        <p class="meal-description">키와 몸무게를 입력하면 비만율(BMI)과 기초대사량(BMR)을 계산해줄게요.</p>
+        <p class="meal-description">키와 몸무게를 입력하면 비만율(BMI)과 기초대사량(BMR)을 계산해드립니다.</p>
         
         <div class="meal-record">
           <div class="input-section">
@@ -270,7 +194,6 @@
           <div class="info-item">
             <span>BMI:</span>
             <span id="saved-bmi">-</span>
-            <span class="bmi-range-indicator" style="font-size: 12px; color: var(--text-light); margin-left: 8px;">(정상: 18.5~23)</span>
           </div>
           <div class="info-item">
             <span>BMR:</span>
@@ -335,13 +258,54 @@
       </div>
     </div>
   </div>
-  
-  <!-- 경로 자동 수정: /recordManagement로 접근하면 /recordManagement.html로 리다이렉트 -->
-  <script>
-    if (window.location.pathname === '/recordManagement' || window.location.pathname === '/recordManagement/') {
-      window.location.replace('/recordManagement.html');
-    }
-  </script>
+
+  <!-- 점심 수정 모달 -->
+  <div id="edit-lunch-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>점심 기록 수정</h3>
+        <button class="modal-close" id="close-lunch-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="lunch-edit-form">
+          <p style="margin-bottom: 15px; color: var(--text-light);">음식별 섭취량을 수정하세요.</p>
+          <div id="lunch-menu-edit-list"></div>
+          <div style="margin-top: 15px;">
+            <strong>총 칼로리: <span id="lunch-edit-total-calories">0</span> kcal</strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="save-lunch-edit-btn" class="submit-btn">저장</button>
+        <button id="cancel-lunch-edit-btn" class="cancel-btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 간식 수정 모달 -->
+  <div id="edit-snack-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>간식 기록 수정</h3>
+        <button class="modal-close" id="close-snack-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="snack-edit-form">
+          <p style="margin-bottom: 15px; color: var(--text-light);">간식 목록을 수정하세요.</p>
+          <div class="food-input-group" style="margin-bottom: 15px;">
+            <input type="text" id="snack-edit-input" placeholder="간식 이름을 입력하세요" />
+            <button id="add-snack-edit-btn" class="add-btn">추가</button>
+          </div>
+          <div id="snack-edit-list" class="food-list"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="save-snack-edit-btn" class="submit-btn">저장</button>
+        <button id="cancel-snack-edit-btn" class="cancel-btn">취소</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/src/recordManagement.js"></script>
 </body>
 </html>

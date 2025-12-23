@@ -60,44 +60,35 @@ function convertAllergyNumbersToNames(allergyNumbers) {
   return names.join(', ');
 }
 
-// Netlify Functions URL 헬퍼 함수
-// 항상 Netlify Functions를 통해 API 호출 (브라우저에서 직접 호출하지 않음)
-function getNetlifyFunctionUrl(functionName) {
-  // 개발 환경과 프로덕션 환경 모두 Netlify Functions 사용
-  // 개발 환경에서는 로컬 Netlify Dev 서버 사용 (netlify dev 실행 시)
-  return `/.netlify/functions/${functionName}`;
-}
-
-// 사용자 학교 정보 가져오기
-async function getUserSchoolInfo() {
-  if (!currentUser || !db) {
-    return null;
-  }
-  
-  try {
-    const userRef = doc(db, 'users', currentUser.uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      const userData = userSnap.data();
-      if (userData.educationOfficeCode && userData.schoolCode) {
-        return {
-          educationOfficeCode: userData.educationOfficeCode,
-          schoolCode: userData.schoolCode,
-          schoolName: userData.schoolName || ''
-        };
-      }
-    }
-  } catch (error) {
-    console.error('학교 정보 가져오기 오류:', error);
-  }
-  
-  return null;
-}
-
 // 오늘의 급식 메뉴 가져오기
 async function fetchTodayMenu() {
   const today = new Date();
+  const apiKey = import.meta.env.VITE_NEIS_API_KEY;
+  const atptOfcdcScCode = import.meta.env.VITE_NEIS_ATPT_OFCDC_SC_CODE;
+  const sdSchulCode = import.meta.env.VITE_NEIS_SD_SCHUL_CODE;
+  
+  // 디버깅: 환경변수 확인
+  console.log('🔍 NEIS API 환경변수 확인:');
+  console.log('  API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : '❌ 없음');
+  console.log('  교육청 코드:', atptOfcdcScCode || '❌ 없음');
+  console.log('  학교 코드:', sdSchulCode || '❌ 없음');
+  
+  if (!apiKey || !atptOfcdcScCode || !sdSchulCode) {
+    console.warn('⚠️ NEIS API 설정이 없어 기본 메뉴를 사용합니다.');
+    console.warn('💡 .env 파일에 다음 값들이 설정되어 있는지 확인하세요:');
+    console.warn('   - VITE_NEIS_API_KEY');
+    console.warn('   - VITE_NEIS_ATPT_OFCDC_SC_CODE');
+    console.warn('   - VITE_NEIS_SD_SCHUL_CODE');
+    // 기본 메뉴로 폴백
+    todayMenu = [
+      { name: '밥', calories: foodCalories['밥'] || 210 },
+      { name: '된장찌개', calories: foodCalories['된장찌개'] || 120 },
+      { name: '김치', calories: foodCalories['김치'] || 15 },
+      { name: '계란후라이', calories: foodCalories['계란후라이'] || 90 },
+      { name: '시금치나물', calories: foodCalories['시금치나물'] || 30 }
+    ];
+    return;
+  }
   
   try {
     // 오늘 날짜를 YYYYMMDD 형식으로 변환
@@ -107,108 +98,22 @@ async function fetchTodayMenu() {
     const dateStr = `${year}${month}${day}`;
     console.log('📅 조회할 날짜:', `${year}-${month}-${day}`, `(${dateStr})`);
     
-    // 사용자 학교 정보 가져오기
-    const schoolInfo = await getUserSchoolInfo();
-    let response;
-    let data;
+    // NEIS API 호출 (직접 호출 - NEIS API는 CORS를 허용함)
+    const apiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey}&Type=json&ATPT_OFCDC_SC_CODE=${atptOfcdcScCode}&SD_SCHUL_CODE=${sdSchulCode}&MLSV_YMD=${dateStr}`;
     
-    // Netlify Function을 통해 호출 시도
-    try {
-      const functionUrl = getNetlifyFunctionUrl('neis-api');
-      // 학교 정보가 있으면 쿼리 파라미터로 전달 (Function에서 사용할 수 있도록)
-      const apiUrl = schoolInfo 
-        ? `${functionUrl}?date=${dateStr}&educationOfficeCode=${schoolInfo.educationOfficeCode}&schoolCode=${schoolInfo.schoolCode}`
-        : `${functionUrl}?date=${dateStr}`;
-      console.log('🌐 NEIS API 호출 (Netlify Function):', apiUrl);
-      console.log('🔍 현재 URL:', window.location.href);
-      console.log('🔍 Function URL:', functionUrl);
-      
-      response = await fetch(apiUrl).catch(error => {
-        console.error('❌ Fetch 오류:', error);
-        throw new Error(`네트워크 오류: ${error.message}`);
-      });
-      
-      console.log('📡 API 응답 상태:', response.status, response.statusText);
-      console.log('📡 응답 URL:', response.url);
-      
-      // Content-Type 확인
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        // Netlify Function이 작동하지 않는 경우, 직접 NEIS API 호출 시도
-        console.warn('⚠️ Netlify Function이 작동하지 않습니다. 직접 API 호출을 시도합니다.');
-        throw new Error('FALLBACK_TO_DIRECT_API');
-      }
-      
-      if (!response.ok) {
-        // 에러 응답 파싱 시도
-        let errorMessage = `HTTP 오류: ${response.status} ${response.statusText}`;
-        let errorDetails = '';
-        try {
-          const errorData = await response.json();
-          console.error('❌ API 에러 응답:', errorData);
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-          if (errorData.details) {
-            errorDetails = errorData.details;
-          }
-          if (errorData.missingVariables) {
-            errorDetails = `누락된 환경 변수: ${errorData.missingVariables.join(', ')}`;
-          }
-        } catch (e) {
-          const errorText = await response.text();
-          if (errorText) {
-            errorMessage = errorText;
-          }
-        }
-        console.error('❌ API 호출 실패:', errorMessage);
-        if (errorDetails) {
-          console.error('❌ 상세 오류:', errorDetails);
-        }
-        
-        // Function에서 환경 변수 오류인 경우 직접 API 호출 시도
-        if (response.status === 500 && (errorMessage.includes('configuration missing') || errorMessage.includes('환경 변수'))) {
-          throw new Error('FALLBACK_TO_DIRECT_API');
-        }
-        
-        throw new Error(errorMessage + (errorDetails ? `\n${errorDetails}` : ''));
-      }
-      
-      data = await response.json();
-    } catch (error) {
-      // Netlify Function 실패 시 직접 NEIS API 호출
-      if (error.message === 'FALLBACK_TO_DIRECT_API' || error.message.includes('Failed to fetch')) {
-        console.log('🔄 직접 NEIS API 호출 시도...');
-        
-        // 학교 정보가 없으면 오류
-        if (!schoolInfo) {
-          console.warn('⚠️ 학교 정보가 없습니다. 기본 메뉴를 사용합니다.');
-          todayMenu = getDefaultMenu();
-          return;
-        }
-        
-        // .env에서 API 키 가져오기
-        const apiKey = import.meta.env.VITE_NEIS_API_KEY;
-        if (!apiKey || apiKey.trim() === '') {
-          console.warn('⚠️ NEIS API 키가 설정되지 않았습니다. 기본 메뉴를 사용합니다.');
-          todayMenu = getDefaultMenu();
-          return;
-        }
-        
-        const directApiUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${apiKey.trim()}&Type=json&ATPT_OFCDC_SC_CODE=${schoolInfo.educationOfficeCode}&SD_SCHUL_CODE=${schoolInfo.schoolCode}&MLSV_YMD=${dateStr}`;
-        console.log('🌐 직접 NEIS API 호출:', directApiUrl.replace(apiKey.trim(), 'KEY=***'));
-        
-        response = await fetch(directApiUrl);
-        
-        if (!response.ok) {
-          throw new Error(`NEIS API 호출 실패: ${response.status}`);
-        }
-        
-        data = await response.json();
-      } else {
-        throw error;
-      }
+    console.log('🌐 NEIS API 호출:', apiUrl);
+    
+    const response = await fetch(apiUrl);
+    
+    console.log('📡 API 응답 상태:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API 호출 실패:', errorText);
+      throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
     }
+    
+    const data = await response.json();
     console.log('📦 NEIS API 응답 데이터:', JSON.stringify(data, null, 2));
     
     // API 응답 파싱
@@ -438,8 +343,6 @@ let chatHistory = [];
 let lunchRecords = {}; // { '밥': 1, '된장찌개': 2 } 형식
 let snackList = [];
 let currentUser = null; // 현재 로그인한 사용자
-let skippedLunch = false; // 점심을 안 먹었는지 여부
-let skippedSnack = false; // 간식을 참았는지 여부
 let userBMR = null; // 사용자의 기초대사량
 let userBMI = null; // 사용자의 BMI
 let userHeight = null; // 사용자의 키 (cm)
@@ -479,32 +382,46 @@ const nutritionChatMessages = document.getElementById('nutrition-chat-messages')
 const nutritionChatInput = document.getElementById('nutrition-chat-input');
 const nutritionSendBtn = document.getElementById('nutrition-send-btn');
 const closeNutritionBtn = document.getElementById('close-nutrition-btn');
-const skipLunchBtn = document.getElementById('skip-lunch-btn');
-const skipSnackBtn = document.getElementById('skip-snack-btn');
 
 // 영양 브리핑 챗봇 상태
 let nutritionChatHistory = [];
 
 // ChatGPT API 호출 함수
 async function callChatGPTAPI(userMessage) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    console.error('OpenAI API Key가 설정되지 않았습니다. .env 파일에 VITE_OPENAI_API_KEY를 설정해주세요.');
+    return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다. API 키를 설정해주세요.';
+  }
+
   // 대화 히스토리에 사용자 메시지 추가
   chatHistory.push({
     role: 'user',
     content: userMessage
   });
 
-  // 알레르기 위험 메뉴 확인 (컨디션 질문 후에만 별도로 안내하므로 여기서는 시스템 프롬프트에 포함하지 않음)
+  // 알레르기 위험 메뉴 확인
   const dangerousMenus = userAllergies && userAllergies.length > 0 ? checkAllergyInMenu() : [];
-  
-  // 학교 정보 가져오기
-  const schoolInfo = await getUserSchoolInfo();
+  const allergyWarningText = userAllergies && userAllergies.length > 0
+    ? (dangerousMenus.length > 0 
+      ? `\n\n학생의 알레르기로 인해 피해야 할 메뉴:\n${dangerousMenus.map((menu, index) => `${index + 1}. ${menu.name}(${menu.allergies.join(', ')})`).join('\n')}`
+      : `\n\n학생의 알레르기로 인해 피해야 할 메뉴: 없음 (오늘 급식에는 학생의 알레르기 성분이 포함된 메뉴가 없습니다)`)
+    : '';
 
   try {
-    const messages = [
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
           {
             role: 'system',
             content: `당신은 학교 급식 관리 챗봇입니다. 학생들과 친근하고 따뜻하게 대화하며 오늘의 급식에 대해 이야기합니다.
-${schoolInfo ? `\n학생의 학교: ${schoolInfo.schoolName || '등록된 학교'}` : ''}
 
 **매우 중요: 말투 및 어휘 사용 규칙**
 - 반드시 반말을 사용하세요. ("~해", "~야", "~지" 등)
@@ -536,14 +453,50 @@ ${todayMenu.map((m, i) => {
 총 칼로리: ${totalCalories > 0 ? totalCalories.toFixed(1) : 0}kcal
 
 
-${userAllergies.length > 0 ? `[기록 관리 탭에 입력한 학생 정보 - 참고용]
+${userAllergies.length > 0 ? `[기록 관리 탭에 입력한 학생 정보]
 학생 이름: ${currentUser?.displayName || '학생'}
-학생의 알레르기 정보: ${userAllergies.join(', ')}
+학생의 알레르기 정보 (기존에 입력한 정보 - 반드시 참고해야 함):
+${userAllergies.map((allergy, index) => `${index + 1}. ${allergy}`).join('\n')}
+${allergyWarningText}
 
-**중요: 알레르기 정보 제공 규칙**
-- 알레르기 정보는 컨디션 질문에 대한 학생의 답변 후 자동으로 별도로 안내됩니다.
-- 컨디션 질문에 대한 학생의 답변에 대해서는 컨디션 피드백만 제공하고, 알레르기 정보는 언급하지 마세요.
-- 알레르기 정보는 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.` : ''}
+**매우 중요: 알레르기 정보 일관성 유지**
+이 웹앱의 기록 관리 탭에 입력된 알레르기 정보를 반드시 확인하고, 한 대화 안에서 절대로 번복하지 마세요.
+
+1. **알레르기 정보 확인 방법:**
+   - 위의 "학생의 알레르기 정보" 목록을 확인하세요. 이는 기록 관리 탭에 입력된 실제 정보입니다.
+   - 위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록을 확인하세요.
+   - 이전 대화 히스토리에서 이미 언급한 알레르기 정보를 확인하세요.
+
+2. **알레르기 정보 제공 규칙:**
+   건강 상태에 대한 질문에 학생이 답변하면:
+   - 먼저 컨디션에 대한 피드백을 해주세요.
+   - 그 다음에 반드시 위의 "기록 관리 탭에 입력한 학생 정보"와 이전 대화 히스토리를 참고하여 알레르기 정보를 알려주세요.
+   
+   - **위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록에 메뉴가 있는 경우:**
+     학생의 이름과 알레르기 정보를 언급한 후 "아래와 같은 음식을 조심해"라고 말하고, 위의 피해야 할 메뉴 목록을 반드시 번호가 매겨진 개조식으로 표시하세요.
+     예: "${currentUser?.displayName || '학생'}은 ${userAllergies.join(', ')} 알레르기가 있네. 아래와 같은 음식을 조심해.\n1. 어묵매운탕(밀, 새우)\n2. 닭볶음탕(난류)\n3. 요구르트(우유)"
+     **중요: 반드시 "1.", "2.", "3." 같은 번호를 매겨서 개조식으로 표시해야 합니다.**
+   
+   - **위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록이 "없음"으로 표시된 경우:**
+     "${currentUser?.displayName || '학생'}님 오늘은 알레르기를 유발하는 음식이 없네요, 맛있게 먹을 수 있겠어요."라고 피드백하세요.
+
+3. **절대 금지 사항:**
+   - 절대로 학생의 알레르기 정보가 있다고 했다가 없다고 하지 마세요.
+   - 절대로 한 대화 안에서 알레르기가 있다고 했다가 없다고 하지 마세요.
+   - 절대로 이전 대화에서 알레르기 메뉴를 언급했다면 (예: "어묵매운탕을 조심하세요"), 나중에 "알레르기를 유발하는 음식이 없다"고 말하지 마세요.
+   - **한 번 알레르기가 있다고 안내한 음식 (has_allergy=true)은 같은 대화 안에서 계속 "주의해야 하는 음식"으로 일관되게 설명하세요.**
+   - **알레르기 정보와 모순되는 답변을 절대 하지 마세요.**
+   - 위의 "기록 관리 탭에 입력한 학생 정보"와 이전 대화 히스토리를 일관되게 참고하여 판단하세요.
+
+4. **대화 히스토리 확인:**
+   - 특히 중요: 이전 대화 히스토리를 반드시 확인하세요.
+   - 만약 이전 대화에서 이미 알레르기 메뉴를 언급했다면, 그 정보를 계속 유지하세요.
+   - 대화 히스토리와 위의 "기록 관리 탭에 입력한 학생 정보"를 일관되게 유지하세요.
+
+5. **알레르기 질문:**
+   - 알레르기가 있냐고 묻지 말고, 컨디션 답변 후 자동으로 알레르기 정보를 포함하세요.
+
+**요약: 기록 관리 탭에 입력된 알레르기 정보를 확인하고, 한 대화 안에서 절대로 번복하지 마세요. 이전 대화에서 언급한 알레르기 정보는 계속 유지하세요.` : ''}
 
 ${nutritionInfo ? `상세 영양 정보:
 ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('\n')}` : ''}
@@ -581,42 +534,27 @@ ${Object.entries(nutritionInfo).map(([key, value]) => `${key}: ${value}`).join('
 6. 학생의 질문에 대해 긍정적이고 격려하는 톤으로 답변하세요.
 7. 절대로 메뉴를 지어내거나 추가하지 마세요. 위에 제공된 메뉴 정보만 사용하세요.
 8. **급식 챗봇의 주요 역할:**
+   - 알레르기 있는 음식 알려주기: 컨디션 질문 후 자동으로 알레르기 정보 제공
    - 컨디션 묻기: 건강 상태에 대한 질문
    - 음식 영양정보 안내하기: 상세 영양 정보를 활용한 설명
-   - 알레르기 정보는 컨디션 질문 후 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
-9. 건강 상태에 대한 질문에 학생이 답변하면, 컨디션에 대한 피드백만 제공하세요. 알레르기 정보는 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
-10. 알레르기 정보는 컨디션 질문 후 자동으로 별도로 안내되므로, 여기서는 언급하지 마세요.
+9. 건강 상태에 대한 질문에 학생이 답변하면, 먼저 컨디션에 대한 피드백을 해주고, 그 다음에 위에 제공된 "학생의 알레르기 정보"와 "학생의 알레르기로 인해 피해야 할 메뉴" 목록을 반드시 참고하여 알레르기 정보를 알려주세요. 
+   - 위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록에 메뉴가 있는 경우: 학생의 이름과 알레르기 정보를 언급한 후 "아래와 같은 음식을 조심해"라고 말하고, 피해야 할 메뉴 목록을 반드시 번호가 매겨진 개조식으로 표시하세요. 메뉴명 뒤에 괄호로 알레르기 정보를 표시하세요. 예: "00은 000알레르기가 있네. 아래와 같은 음식을 조심해.\n1. 어묵매운탕(밀, 새우)\n2. 닭볶음탕(난류)\n3. 요구르트(우유)" 형식으로 반드시 번호를 매겨서 표시하세요. **중요: 번호 없이 표시하면 안 됩니다. 반드시 "1.", "2.", "3." 같은 번호를 매겨야 합니다.**
+   - 위의 "학생의 알레르기로 인해 피해야 할 메뉴" 목록이 "없음"으로 표시된 경우: "00 오늘은 알레르기를 유발하는 음식이 없네, 맛있게 먹을 수 있겠어!"라고 피드백하세요.
+10. 절대로 학생의 알레르기 정보가 있다고 했다가 없다고 하지 마세요. 위에 제공된 "학생의 알레르기 정보"와 "학생의 알레르기로 인해 피해야 할 메뉴" 목록을 일관되게 참고하여 판단하세요.
+11. 특히 중요: 이전 대화 히스토리와 기록 관리 탭에 입력한 학생 정보를 모두 반영하여 답변하세요. 만약 이전 대화에서 이미 알레르기 메뉴를 언급했다면 (예: "어묵매운탕을 조심하세요"), 나중에 "알레르기를 유발하는 음식이 없다"고 말하지 마세요. 대화 히스토리와 기록 관리 탭에 입력한 정보를 일관되게 유지하세요. 이전에 언급한 알레르기 정보는 계속 유지해야 합니다.
+12. 알레르기가 있냐고 묻지 말고, 컨디션 답변 후 자동으로 알레르기 정보를 포함하세요.
 13. **기초대사량(BMR), BMI, 목표 몸무게, 식사 비율 등은 언급하지 마세요. 기록 관리 탭에서만 다루는 내용입니다.**
 14. "오늘의 급식 칼로리가 맞는지 확인해볼까?" 같은 칼로리 확인 질문은 하지 마세요. 대신 "00에게 적합한 메뉴를 알아볼까?" 또는 "00에게 추천하는 메뉴를 알려줄까?" 같은 방식으로 학생에게 적합한 메뉴를 제안하는 방향으로 대화를 이끌어주세요.`
           },
           ...chatHistory
-    ];
-
-    // 항상 Netlify Function을 통해 호출
-    const functionUrl = getNetlifyFunctionUrl('openai-chat');
-    console.log('🤖 OpenAI API 호출 (Netlify Function):', functionUrl);
-    
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages,
-        model: 'gpt-3.5-turbo',
+        ],
         max_tokens: 500,
         temperature: 0.8
-      }),
-    }).catch(error => {
-      console.error('❌ OpenAI API Fetch 오류:', error);
-      throw new Error(`네트워크 오류: ${error.message}`);
+      })
     });
-    
-    console.log('📡 OpenAI API 응답 상태:', response.status, response.statusText);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API 호출 실패: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
+      throw new Error(`API 호출 실패: ${response.status}`);
     }
 
     const data = await response.json();
@@ -656,18 +594,6 @@ function addChatMessage(sender, message) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}`;
   
-  // bot 메시지일 때 프로필 이미지 추가
-  if (sender === 'bot') {
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar';
-    const avatarImg = document.createElement('img');
-    avatarImg.src = '/밥체크.png';
-    avatarImg.alt = '밥체크';
-    avatarImg.className = 'bot-avatar';
-    avatarDiv.appendChild(avatarImg);
-    messageDiv.appendChild(avatarDiv);
-  }
-  
   const messageContent = document.createElement('div');
   messageContent.className = 'message-content';
   
@@ -676,7 +602,6 @@ function addChatMessage(sender, message) {
   messageContent.innerHTML = formattedMessage;
   
   messageDiv.appendChild(messageContent);
-  
   chatMessages.appendChild(messageDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -710,19 +635,12 @@ function formatMenuList() {
 
 // 챗봇 시작
 async function startChatbot() {
-  // 학교 정보 확인
-  const schoolInfo = await getUserSchoolInfo();
-  if (!schoolInfo) {
-    addChatMessage('bot', '학교 정보가 등록되지 않았어. 내정보 탭에서 학교를 등록해줘.');
-    return;
-  }
+  // 챗봇 상태 초기화
+  chatTurn = 0;
+  chatHistory = [];
   
   // 먼저 오늘의 급식 메뉴를 가져옴 (API에서 실제 메뉴 가져오기)
   await fetchTodayMenu();
-  
-  // 챗봇 상태 초기화 (항상 새로 시작)
-  chatTurn = 0;
-  chatHistory = [];
   
   // 메뉴가 없으면 안내 메시지
   if (todayMenu.length === 0) {
@@ -730,9 +648,8 @@ async function startChatbot() {
     return;
   }
   
-  // 첫 번째 메시지: 자연스러운 인사 (학교 정보 포함)
-  const schoolName = schoolInfo.schoolName || '우리 학교';
-  const greetingMessage = `안녕 나는 밥풀이야. ${schoolName}의 오늘 점심메뉴가 궁금하지?`;
+  // 첫 번째 메시지: 인사 및 메뉴 안내
+  const greetingMessage = '안녕! 오늘 점심메뉴를 알려줄게.';
   addChatMessage('bot', greetingMessage);
   
   // 잠시 후 메뉴 표시 (API에서 가져온 실제 메뉴만 표시)
@@ -740,9 +657,9 @@ async function startChatbot() {
     const menuMessage = formatMenuList();
     addChatMessage('bot', menuMessage);
     
-    // 건강 상태 물어보기 (더 자연스럽게)
+    // 건강 상태 물어보기
     setTimeout(() => {
-      const healthQuestion = '오늘 컨디션은 어때? 건강하게 잘 지내고 있어?';
+      const healthQuestion = '오늘 건강은 어때? 컨디션이 어떤지 궁금해!';
       addChatMessage('bot', healthQuestion);
     
     // 초기 시스템 메시지 (ChatGPT가 컨텍스트를 이해할 수 있도록)
@@ -865,46 +782,9 @@ async function handleChatbotResponse(userMessage) {
   // 사용자 메시지 표시
   addChatMessage('user', userMessage);
   
-  // 컨디션 관련 답변인지 확인 (1턴 또는 2턴에서 컨디션 질문에 대한 답변)
-  const isHealthResponse = chatTurn === 1 || chatTurn === 2;
-  const lowerMessage = userMessage.toLowerCase();
-  const isHealthRelated = lowerMessage.includes('좋') || lowerMessage.includes('괜찮') || 
-                          lowerMessage.includes('안좋') || lowerMessage.includes('나쁘') ||
-                          lowerMessage.includes('피곤') || lowerMessage.includes('아픈') ||
-                          lowerMessage.includes('컨디션') || lowerMessage.includes('건강');
-  
   // ChatGPT API 호출 (시스템 프롬프트에 이미 알레르기 정보와 위험 메뉴 목록이 포함되어 있음)
   const botResponse = await callChatGPTAPI(userMessage);
   addChatMessage('bot', botResponse);
-  
-  // 컨디션 질문에 대한 답변 후 알레르기 정보 자동 안내
-  if (isHealthResponse && isHealthRelated && userAllergies && userAllergies.length > 0) {
-    setTimeout(async () => {
-      const dangerousMenus = checkAllergyInMenu();
-      
-      if (dangerousMenus.length > 0) {
-        // 알레르기 위험 메뉴가 있는 경우
-        const allergyMessage = `참! ${currentUser?.displayName || '너'}는 ${userAllergies.join(', ')} 알레르기가 있네. 아래와 같은 음식을 조심해야 해:\n\n${dangerousMenus.map((menu, index) => `${index + 1}. ${menu.name} (${menu.allergies.join(', ')})`).join('\n')}`;
-        addChatMessage('bot', allergyMessage);
-        
-        // 대화 히스토리에 추가
-        chatHistory.push({
-          role: 'assistant',
-          content: allergyMessage
-        });
-      } else {
-        // 알레르기 위험 메뉴가 없는 경우
-        const safeMessage = `${currentUser?.displayName || '너'}는 ${userAllergies.join(', ')} 알레르기가 있지만, 오늘 급식에는 해당 알레르기 성분이 포함된 메뉴가 없어서 안전하게 먹을 수 있어!`;
-        addChatMessage('bot', safeMessage);
-        
-        // 대화 히스토리에 추가
-        chatHistory.push({
-          role: 'assistant',
-          content: safeMessage
-        });
-      }
-    }, 1500);
-  }
   
   // 3턴 이상이면 대화 끝내기 버튼 표시
   if (chatTurn >= 3) {
@@ -921,7 +801,7 @@ async function handleChatbotResponse(userMessage) {
 }
 
 // 대화 끝내기
-async function endChatbot() {
+function endChatbot() {
   chatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
   initializeRecordSection();
@@ -951,11 +831,6 @@ async function initializeRecordSection() {
   if (todayMenu && todayMenu.length > 0) {
     initConsumptionChart();
   }
-  
-  // 스킵 상태 초기화
-  skippedLunch = false;
-  skippedSnack = false;
-  updateSkipButtons();
 }
 
 // 점심 메뉴 리스트 렌더링
@@ -971,10 +846,19 @@ function renderLunchMenuList() {
   todayMenu.forEach(menu => {
     const count = lunchRecords[menu.name] || 0;
     const menuCalories = getAdjustedCalories(menu.name);
-    const onePortionCalories = Math.round(menuCalories);
     
-    // 1인분 칼로리 항상 표시
-    const caloriesDisplay = `<span class="menu-calories">(1인분: ${onePortionCalories}kcal)</span>`;
+    // 칼로리 표시 계산: 1인분이 넘으면 기존 칼로리 + 알파(추가 인분)
+    let caloriesDisplay = '';
+    if (count > 0) {
+      if (count === 1) {
+        caloriesDisplay = `<span class="menu-calories">${Math.round(menuCalories)}kcal</span>`;
+      } else {
+        const baseCalories = Math.round(menuCalories);
+        const additionalCalories = Math.round(menuCalories * (count - 1));
+        const totalCalories = Math.round(menuCalories * count);
+        caloriesDisplay = `<span class="menu-calories">${baseCalories}kcal + ${additionalCalories}kcal (${totalCalories}kcal)</span>`;
+      }
+    }
     
     const menuItem = document.createElement('div');
     menuItem.className = 'menu-item';
@@ -1136,6 +1020,11 @@ function setupMenuControls() {
       updateMenuCount(menuName, parseInt(e.target.value) || 0);
     });
   });
+  
+  // 초기 칼로리 표시 업데이트
+  todayMenu.forEach(menu => {
+    updateMenuCaloriesDisplay(menu.name);
+  });
 }
 
 // 메뉴 개수 업데이트
@@ -1143,41 +1032,42 @@ function updateMenuCount(menuName, count) {
   lunchRecords[menuName] = count;
   updateTotalCalories();
   updateConsumptionChart();
+  updateMenuCaloriesDisplay(menuName);
 }
 
 // 총 칼로리 업데이트 (먹은 양에 따라 실제 섭취 칼로리 계산)
 function updateTotalCalories() {
   // 각 메뉴의 칼로리 × 인분 수를 합산하여 실제 섭취 칼로리 계산
   let actualCalories = 0;
-  let detailItems = [];
   
   todayMenu.forEach(menu => {
     const count = lunchRecords[menu.name] || 0;
     if (count > 0) {
       const menuCalories = getAdjustedCalories(menu.name);
-      const menuTotalCalories = menuCalories * count;
-      actualCalories += menuTotalCalories;
-      
-      // 상세 정보에 추가
-      const onePortionCal = Math.round(menuCalories);
-      const totalCal = Math.round(menuTotalCalories);
-      detailItems.push(`${menu.name}: ${onePortionCal}kcal × ${count}인분 = ${totalCal}kcal`);
+      actualCalories += menuCalories * count;
     }
   });
   
+  // 기본 칼로리(API에서 가져온 값, 1인분 기준)와 실제 섭취 칼로리 표시
+  const baseCalories = totalCalories > 0 ? Math.round(totalCalories) : 0;
   const actualCaloriesRounded = Math.round(actualCalories);
   
-  // 총 칼로리 표시 (먹은 인분만큼 계산된 칼로리)
-  lunchTotalCalories.textContent = actualCaloriesRounded > 0 ? actualCaloriesRounded : 0;
+  // 총 칼로리 표시
+  lunchTotalCalories.textContent = actualCaloriesRounded > 0 ? actualCaloriesRounded : baseCalories;
   
-  // 상세 정보 표시 (먹은 음식별 칼로리 계산 내역)
+  // 상세 정보 표시
   if (calorieDetail) {
-    if (detailItems.length > 0) {
-      calorieDetail.innerHTML = `<strong>섭취 칼로리 계산:</strong><br>${detailItems.join('<br>')}<br><strong>총 섭취 칼로리: ${actualCaloriesRounded}kcal</strong>`;
+    if (actualCaloriesRounded > 0 && actualCaloriesRounded !== baseCalories) {
+      // 실제 섭취 칼로리와 기본 칼로리가 다른 경우 상세 정보 표시
+      calorieDetail.textContent = `기본 칼로리(1인분 기준): ${baseCalories}kcal → 실제 섭취: ${actualCaloriesRounded}kcal`;
+      calorieDetail.style.display = 'block';
+    } else if (actualCaloriesRounded > 0) {
+      // 같으면 간단히 표시
+      calorieDetail.textContent = `기본 칼로리(1인분 기준): ${baseCalories}kcal`;
+      calorieDetail.style.display = 'block';
     } else {
-      calorieDetail.innerHTML = '<em>먹은 음식을 선택하면 칼로리가 계산됩니다.</em>';
+      calorieDetail.style.display = 'none';
     }
-    calorieDetail.style.display = 'block';
   }
 }
 
@@ -1197,20 +1087,8 @@ function initConsumptionChart() {
     consumptionChart.destroy();
   }
   
-  // 먹은 음식만 필터링 (count > 0인 음식만)
-  const eatenMenus = todayMenu.filter(menu => {
-    const count = lunchRecords[menu.name] || 0;
-    return count > 0;
-  });
-  
-  // 먹은 음식이 없으면 그래프를 생성하지 않음
-  if (eatenMenus.length === 0) {
-    console.log('⚠️ 그래프 초기화: 먹은 음식이 없어서 그래프를 생성하지 않습니다.');
-    return;
-  }
-  
-  const labels = eatenMenus.map(menu => menu.name);
-  const data = eatenMenus.map(menu => lunchRecords[menu.name] || 0);
+  const labels = todayMenu.map(menu => menu.name);
+  const data = todayMenu.map(menu => lunchRecords[menu.name] || 0);
   
   consumptionChart = new Chart(ctx, {
     type: 'bar',
@@ -1221,11 +1099,13 @@ function initConsumptionChart() {
           label: '섭취량 (인분)',
           data: data,
           backgroundColor: data.map(count => {
+            if (count === 0) return 'rgba(200, 200, 200, 0.3)'; // 안 먹은 음식
             if (count === 1) return 'rgba(76, 175, 80, 0.7)'; // 1인분 (권장)
             if (count >= 3) return 'rgba(244, 67, 54, 0.7)'; // 3인분 이상 (과다)
             return 'rgba(255, 152, 0, 0.7)'; // 2인분 (주의)
           }),
           borderColor: data.map(count => {
+            if (count === 0) return 'rgba(200, 200, 200, 0.5)';
             if (count === 1) return 'rgba(76, 175, 80, 1)';
             if (count >= 3) return 'rgba(244, 67, 54, 1)';
             return 'rgba(255, 152, 0, 1)';
@@ -1236,9 +1116,9 @@ function initConsumptionChart() {
           label: '권장 섭취량 (1인분)',
           data: labels.map(() => 1),
           type: 'line',
-          borderColor: '#4CAF50',
-          borderWidth: 3,
-          borderDash: [8, 4],
+          borderColor: 'rgba(76, 175, 80, 0.8)',
+          borderWidth: 2,
+          borderDash: [5, 5],
           fill: false,
           pointRadius: 0,
           tension: 0
@@ -1313,52 +1193,28 @@ function initConsumptionChart() {
 
 // 섭취량 막대그래프 업데이트
 function updateConsumptionChart() {
-  // todayMenu가 없으면 업데이트하지 않음
-  if (!todayMenu || todayMenu.length === 0) {
-    return;
-  }
-  
-  // 먹은 음식만 필터링 (count > 0인 음식만)
-  const eatenMenus = todayMenu.filter(menu => {
-    const count = lunchRecords[menu.name] || 0;
-    return count > 0;
-  });
-  
-  // 먹은 음식이 없으면 그래프 제거
-  if (eatenMenus.length === 0) {
-    if (consumptionChart) {
-      consumptionChart.destroy();
-      consumptionChart = null;
-    }
-    return;
-  }
-  
-  // 그래프가 없거나 레이블이 변경되었으면 재초기화
+  // 그래프가 없으면 초기화 시도
   if (!consumptionChart) {
     initConsumptionChart();
     return;
   }
   
-  const labels = eatenMenus.map(menu => menu.name);
-  const data = eatenMenus.map(menu => lunchRecords[menu.name] || 0);
-  
-  // 레이블이 변경되었으면 그래프 재생성
-  const currentLabels = consumptionChart.data.labels || [];
-  if (labels.length !== currentLabels.length || 
-      labels.some((label, idx) => label !== currentLabels[idx])) {
-    consumptionChart.destroy();
-    initConsumptionChart();
+  // todayMenu가 없으면 업데이트하지 않음
+  if (!todayMenu || todayMenu.length === 0) {
     return;
   }
   
-  // 데이터만 업데이트
+  const data = todayMenu.map(menu => lunchRecords[menu.name] || 0);
+  
   consumptionChart.data.datasets[0].data = data;
   consumptionChart.data.datasets[0].backgroundColor = data.map(count => {
+    if (count === 0) return 'rgba(200, 200, 200, 0.3)';
     if (count === 1) return 'rgba(76, 175, 80, 0.7)';
     if (count >= 3) return 'rgba(244, 67, 54, 0.7)';
     return 'rgba(255, 152, 0, 0.7)';
   });
   consumptionChart.data.datasets[0].borderColor = data.map(count => {
+    if (count === 0) return 'rgba(200, 200, 200, 0.5)';
     if (count === 1) return 'rgba(76, 175, 80, 1)';
     if (count >= 3) return 'rgba(244, 67, 54, 1)';
     return 'rgba(255, 152, 0, 1)';
@@ -1389,24 +1245,44 @@ function imageToBase64(file) {
 
 // OpenAI Vision API로 간식 이미지 분석
 async function analyzeSnackImage(imageFile) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    return '죄송합니다. AI 분석 서비스가 준비되지 않았습니다.';
+  }
+
   try {
     // 이미지를 Base64로 변환
     const base64Image = await imageToBase64(imageFile);
     
-    const prompt = '이 사진에 있는 간식(음식)을 분석해주세요. 간식의 이름을 정확하게 알려주세요. 만약 여러 개의 간식이 있다면 쉼표로 구분하여 모두 나열해주세요. 한국어로 간단하게 답변해주세요. 예: "초콜릿 쿠키, 사과, 우유" 또는 "빵 2개, 과자" 등. 간식 이름만 나열하고 다른 설명은 하지 마세요.';
-    
-    // 항상 Netlify Function을 통해 호출
-    const functionUrl = getNetlifyFunctionUrl('openai-vision');
-    const response = await fetch(functionUrl, {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        base64Image,
-        prompt,
         model: 'gpt-4o-mini',
-      }),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: '이 사진에 있는 간식(음식)을 분석해주세요. 간식의 이름을 정확하게 알려주세요. 만약 여러 개의 간식이 있다면 쉼표로 구분하여 모두 나열해주세요. 한국어로 간단하게 답변해주세요. 예: "초콜릿 쿠키, 사과, 우유" 또는 "빵 2개, 과자" 등. 간식 이름만 나열하고 다른 설명은 하지 마세요.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: base64Image
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.3
+      })
     });
 
     if (!response.ok) {
@@ -1464,59 +1340,18 @@ function addNutritionMessage(sender, message) {
 
 // 영양 브리핑 챗봇 API 호출
 async function callNutritionChatGPTAPI(userMessage, lunchData) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    return '죄송합니다. 챗봇 서비스가 준비되지 않았습니다.';
+  }
+
   nutritionChatHistory.push({
     role: 'user',
     content: userMessage
   });
 
   try {
-    // 안먹었어요가 체크된 경우
-    if (lunchData.skipped) {
-      const messages = [
-        {
-          role: 'system',
-          content: `당신은 영양사이자 건강 관리 전문가입니다. 학생이 오늘 점심을 안 먹었을 때 균형잡힌 식사를 하도록 조언을 제공합니다.
-
-중요 지침:
-1. 모든 답변은 짧은 문장으로 3문장 이내로 작성해주세요. 간결하고 명확하게 답변하세요.
-2. 점심을 안 먹은 것에 대해 걱정하지 않도록 따뜻하게 대하세요.
-3. 균형잡힌 식사를 하도록 조언해주세요.
-4. 긍정적이고 격려하는 톤으로 답변하세요.
-5. 학생의 건강을 위한 따뜻한 조언을 해주세요.`
-        },
-        ...nutritionChatHistory
-      ];
-
-      const functionUrl = getNetlifyFunctionUrl('openai-chat');
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages,
-          model: 'gpt-3.5-turbo',
-          max_tokens: 500,
-          temperature: 0.8
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`API 호출 실패: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
-      }
-
-      const data = await response.json();
-      const botMessage = data.choices[0].message.content;
-      
-      nutritionChatHistory.push({
-        role: 'assistant',
-        content: botMessage
-      });
-
-      return botMessage;
-    }
-    
     // 먹은 메뉴 정보 정리
     const eatenMenus = lunchData.menuItems.filter(item => item.count > 0);
     const menuSummary = eatenMenus.map(item => 
@@ -1580,7 +1415,15 @@ async function callNutritionChatGPTAPI(userMessage, lunchData) {
       return isCarbRich && item.count >= 2;
     });
     
-    const messages = [
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
           {
             role: 'system',
             content: `당신은 영양사이자 건강 관리 전문가입니다. 학생들이 먹은 점심 식사의 영양을 분석하고 건강한 식습관을 위한 조언을 제공합니다.
@@ -1659,26 +1502,14 @@ ${excessiveFoods.length > 0 ? `${userAllergies && userAllergies.length > 0 && ca
 - 이전 대화에서 언급한 알레르기 정보와 모순되는 답변 금지`
           },
           ...nutritionChatHistory
-    ];
-
-    // 항상 Netlify Function을 통해 호출
-    const functionUrl = getNetlifyFunctionUrl('openai-chat');
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages,
-        model: 'gpt-3.5-turbo',
+        ],
         max_tokens: 500,
         temperature: 0.8
-      }),
+      })
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API 호출 실패: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
+      throw new Error(`API 호출 실패: ${response.status}`);
     }
 
     const data = await response.json();
@@ -1738,30 +1569,9 @@ async function startNutritionChatbot(lunchData) {
   recordSection.classList.add('hidden');
   nutritionChatbotSection.classList.remove('hidden');
   
-  // 대화 히스토리 초기화 (항상 새로 시작)
-  nutritionChatHistory = [];
+  // 대화 히스토리가 없을 때만 초기 메시지 표시
+  if (nutritionChatHistory.length === 0) {
   nutritionChatMessages.innerHTML = '';
-  
-  // 안먹었어요가 체크된 경우
-  if (lunchData.skipped) {
-    const greetingMessage = '안녕! 오늘 점심을 안 드셨군요.';
-    addNutritionMessage('bot', greetingMessage);
-    
-    // 자동으로 균형잡힌 식사 조언 시작
-    setTimeout(async () => {
-      addNutritionMessage('bot', '영양 분석 중...');
-      
-      const advicePrompt = '학생이 오늘 점심을 안 먹었습니다. 균형잡힌 식사를 하도록 조언해주세요. 건강한 식습관에 대한 따뜻한 조언을 제공해주세요.';
-      const advice = await callNutritionChatGPTAPI(advicePrompt, lunchData);
-      
-      // "영양 분석 중..." 메시지 제거하고 실제 조언 표시
-      if (nutritionChatMessages.lastChild) {
-        nutritionChatMessages.removeChild(nutritionChatMessages.lastChild);
-      }
-      addNutritionMessage('bot', advice);
-    }, 1000);
-    return;
-  }
   
   // 먹은 메뉴 정보 정리
   const eatenMenus = lunchData.menuItems.filter(item => item.count > 0);
@@ -1822,6 +1632,14 @@ async function startNutritionChatbot(lunchData) {
       }, 500);
     }
   }, 1000);
+  } else {
+    // 기존 대화가 있으면 히스토리에서 메시지 복원
+    nutritionChatMessages.innerHTML = '';
+    nutritionChatHistory.forEach(msg => {
+      const sender = msg.role === 'user' ? 'user' : 'bot';
+      addNutritionMessage(sender, msg.content);
+    });
+  }
 }
 
 // 점심 제출
@@ -1830,21 +1648,6 @@ async function submitLunch() {
   if (!currentUser) {
     alert('⚠️ 로그인이 필요합니다.\n메인 페이지에서 Google 로그인을 먼저 해주세요.');
     window.location.href = '/index.html';
-    return;
-  }
-  
-  // 안먹었어요가 체크된 경우
-  if (skippedLunch) {
-    // Firebase에 기록하지 않고 영양 브리핑으로 이동
-    const lunchData = {
-      records: {},
-      totalCalories: 0,
-      baseCalories: totalCalories,
-      menuItems: [],
-      skipped: true
-    };
-    
-    startNutritionChatbot(lunchData);
     return;
   }
   
@@ -1906,17 +1709,14 @@ async function submitLunch() {
   try {
     await saveLunchToFirebase(lunchData);
     console.log('✅ 점심 기록이 Firebase에 저장되었습니다.');
-    
-    // 저장 완료 표시
-    submitBtn.textContent = '✅ 저장완료';
-    submitBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+    alert('✅ 점심 기록이 성공적으로 저장되었습니다!');
     
     // 새로입력하기 버튼 표시
     if (newLunchBtn) {
       newLunchBtn.classList.remove('hidden');
     }
   
-    // 영양 브리핑 챗봇 시작 (화면 전환)
+  // 영양 브리핑 챗봇 시작
   startNutritionChatbot(lunchData);
   } catch (error) {
     console.error('❌ Firebase 저장 오류:', error);
@@ -1953,12 +1753,6 @@ async function submitSnack() {
     return;
   }
   
-  // 참았어요가 체크된 경우 Firebase에 기록하지 않음
-  if (skippedSnack) {
-    alert('간식을 참으셨군요! 잘하셨어요! 👍');
-    return;
-  }
-  
   if (snackList.length === 0) {
     alert('먹은 간식을 입력해주세요.');
     return;
@@ -1981,10 +1775,7 @@ async function submitSnack() {
   try {
     await saveSnackToFirebase(snackData);
     console.log('✅ 간식 기록이 Firebase에 저장되었습니다.');
-    
-    // 저장 완료 표시
-    submitBtn.textContent = '✅ 저장완료';
-    submitBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+    alert('✅ 간식 기록이 성공적으로 저장되었습니다!');
     
     // 새로입력하기 버튼 표시
     if (newSnackBtn) {
@@ -2157,64 +1948,6 @@ submitSnackBtn.addEventListener('click', async () => {
   await submitSnack();
 });
 
-// 안먹었어요 버튼 클릭 이벤트
-if (skipLunchBtn) {
-  skipLunchBtn.addEventListener('click', () => {
-    skippedLunch = !skippedLunch;
-    updateSkipButtons();
-    
-    if (skippedLunch) {
-      // 모든 메뉴 선택 해제
-      lunchRecords = {};
-      renderLunchMenuList();
-      setupMenuControls();
-      updateTotalCalories();
-      if (consumptionChart) {
-        consumptionChart.destroy();
-        consumptionChart = null;
-      }
-    }
-  });
-}
-
-// 참았어요 버튼 클릭 이벤트
-if (skipSnackBtn) {
-  skipSnackBtn.addEventListener('click', () => {
-    skippedSnack = !skippedSnack;
-    updateSkipButtons();
-    
-    if (skippedSnack) {
-      // 간식 목록 초기화
-      snackList = [];
-      updateSnackList();
-      snackInput.value = '';
-    }
-  });
-}
-
-// 스킵 버튼 스타일 업데이트
-function updateSkipButtons() {
-  if (skipLunchBtn) {
-    if (skippedLunch) {
-      skipLunchBtn.classList.add('active');
-      skipLunchBtn.textContent = '✓ 안먹었어요';
-    } else {
-      skipLunchBtn.classList.remove('active');
-      skipLunchBtn.textContent = '안먹었어요';
-    }
-  }
-  
-  if (skipSnackBtn) {
-    if (skippedSnack) {
-      skipSnackBtn.classList.add('active');
-      skipSnackBtn.textContent = '✓ 참았어요';
-    } else {
-      skipSnackBtn.classList.remove('active');
-      skipSnackBtn.textContent = '참았어요';
-    }
-  }
-}
-
 // 새로입력하기 버튼 이벤트
 if (newLunchBtn) {
   newLunchBtn.addEventListener('click', () => {
@@ -2225,15 +1958,11 @@ if (newLunchBtn) {
       setupMenuControls();
       updateTotalCalories();
       initConsumptionChart();
+      // 초기 칼로리 표시 업데이트
+      todayMenu.forEach(menu => {
+        updateMenuCaloriesDisplay(menu.name);
+      });
       newLunchBtn.classList.add('hidden');
-      
-      // 제출 버튼 원래 상태로 복원
-      const submitBtn = document.getElementById('submit-lunch-btn');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '점심 제출하기';
-        submitBtn.style.background = ''; // 원래 스타일로 복원
-      }
     }
   });
 }
@@ -2246,23 +1975,13 @@ if (newSnackBtn) {
       updateSnackList();
       snackInput.value = '';
       newSnackBtn.classList.add('hidden');
-      
-      // 제출 버튼 원래 상태로 복원
-      const submitBtn = document.getElementById('submit-snack-btn');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '간식 제출하기';
-        submitBtn.style.background = ''; // 원래 스타일로 복원
-      }
     }
   });
 }
 
-if (backBtn) {
-  backBtn.addEventListener('click', () => {
-    window.location.href = '/index.html';
-  });
-}
+backBtn.addEventListener('click', () => {
+  window.location.href = '/index.html';
+});
 
 // 영양 브리핑 챗봇 전송 버튼
 nutritionSendBtn.addEventListener('click', async () => {
@@ -2346,11 +2065,9 @@ nutritionChatInput.addEventListener('keypress', async (e) => {
 });
 
 // 영양 브리핑 챗봇 닫기
-closeNutritionBtn.addEventListener('click', async () => {
+closeNutritionBtn.addEventListener('click', () => {
   nutritionChatbotSection.classList.add('hidden');
   recordSection.classList.remove('hidden');
-  // 기록 섹션 초기화 (메뉴가 없을 경우를 대비)
-  await initializeRecordSection();
   // 대화 히스토리는 유지 (다시 열면 이어서 대화 가능)
 });
 
@@ -2472,187 +2189,6 @@ async function saveSnackToFirebase(snackData) {
   }
 }
 
-// Firebase에서 급식 챗봇 대화 불러오기 (현재 사용 안 함 - 대화는 저장만 하고 불러오지 않음)
-// async function loadMealChatHistory() {
-//   if (!db || !currentUser) {
-//     return null;
-//   }
-//   
-//   try {
-//     const date = getTodayDate();
-//     const chatHistoryRef = collection(db, 'chatHistory');
-//     const q = query(
-//       chatHistoryRef,
-//       where('userId', '==', currentUser.uid),
-//       where('date', '==', date),
-//       where('type', '==', 'mealChat')
-//     );
-//     const querySnapshot = await getDocs(q);
-//     
-//     if (!querySnapshot.empty) {
-//       const docData = querySnapshot.docs[0].data();
-//       if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
-//         console.log('✅ 저장된 급식 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
-//         return docData.messages;
-//       }
-//     }
-//     return null;
-//   } catch (error) {
-//     console.error('급식 챗봇 대화 불러오기 오류:', error);
-//     
-//     // 권한 오류인 경우 안내 메시지 표시
-//     if (error.code === 'permission-denied') {
-//       console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
-//       console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
-//       console.warn('   firestore.rules 파일을 Firebase Console에 배포해야 합니다.');
-//     }
-//     
-//     // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
-//     return null;
-//   }
-// }
-
-// Firebase에 급식 챗봇 대화 저장
-async function saveMealChatHistory() {
-  if (!db) {
-    throw new Error('Firebase가 초기화되지 않았습니다.');
-  }
-  
-  if (!currentUser) {
-    throw new Error('로그인이 필요합니다.');
-  }
-  
-  if (!chatHistory || chatHistory.length === 0) {
-    return; // 저장할 대화가 없으면 반환
-  }
-  
-  const date = getTodayDate();
-  const chatData = {
-    userId: currentUser.uid,
-    userEmail: currentUser.email,
-    userName: currentUser.displayName || '익명',
-    date: date,
-    type: 'mealChat',
-    messages: chatHistory,
-    updatedAt: serverTimestamp()
-  };
-  
-  // 기존 기록 확인
-  const chatHistoryRef = collection(db, 'chatHistory');
-  const q = query(
-    chatHistoryRef,
-    where('userId', '==', currentUser.uid),
-    where('date', '==', date),
-    where('type', '==', 'mealChat')
-  );
-  const querySnapshot = await getDocs(q);
-  
-  if (!querySnapshot.empty) {
-    // 기존 기록 업데이트
-    const existingDoc = querySnapshot.docs[0];
-    await updateDoc(doc(db, 'chatHistory', existingDoc.id), chatData);
-    console.log('급식 챗봇 대화 업데이트 완료:', existingDoc.id);
-    return existingDoc.id;
-  } else {
-    // 새 기록 생성
-    chatData.createdAt = serverTimestamp();
-    const docRef = await addDoc(collection(db, 'chatHistory'), chatData);
-    console.log('급식 챗봇 대화 저장 완료:', docRef.id);
-    return docRef.id;
-  }
-}
-
-// Firebase에서 영양 브리핑 챗봇 대화 불러오기 (현재 사용 안 함 - 대화는 저장만 하고 불러오지 않음)
-// async function loadNutritionChatHistory() {
-//   if (!db || !currentUser) {
-//     return null;
-//   }
-//   
-//   try {
-//     const date = getTodayDate();
-//     const chatHistoryRef = collection(db, 'chatHistory');
-//     const q = query(
-//       chatHistoryRef,
-//       where('userId', '==', currentUser.uid),
-//       where('date', '==', date),
-//       where('type', '==', 'nutritionChat')
-//     );
-//     const querySnapshot = await getDocs(q);
-//     
-//     if (!querySnapshot.empty) {
-//       const docData = querySnapshot.docs[0].data();
-//       if (docData.messages && Array.isArray(docData.messages) && docData.messages.length > 0) {
-//         console.log('✅ 저장된 영양 브리핑 챗봇 대화 불러오기 완료:', docData.messages.length, '개 메시지');
-//         return docData.messages;
-//       }
-//     }
-//     return null;
-//   } catch (error) {
-//     console.error('영양 브리핑 챗봇 대화 불러오기 오류:', error);
-//     
-//     // 권한 오류인 경우 안내 메시지 표시
-//     if (error.code === 'permission-denied') {
-//       console.warn('⚠️ Firebase 권한 오류: chatHistory 컬렉션에 대한 읽기 권한이 없습니다.');
-//       console.warn('💡 Firebase Console에서 Firestore 규칙을 확인하고 배포해주세요.');
-//     }
-//     
-//     // 권한 오류가 있어도 앱은 계속 작동하도록 null 반환
-//     return null;
-//   }
-// }
-
-// Firebase에 영양 브리핑 챗봇 대화 저장
-async function saveNutritionChatHistory() {
-  if (!db) {
-    throw new Error('Firebase가 초기화되지 않았습니다.');
-  }
-  
-  if (!currentUser) {
-    throw new Error('로그인이 필요합니다.');
-  }
-  
-  if (!nutritionChatHistory || nutritionChatHistory.length === 0) {
-    return; // 저장할 대화가 없으면 반환
-  }
-  
-  const date = getTodayDate();
-  const chatData = {
-    userId: currentUser.uid,
-    userEmail: currentUser.email,
-    userName: currentUser.displayName || '익명',
-    date: date,
-    type: 'nutritionChat',
-    messages: nutritionChatHistory,
-    updatedAt: serverTimestamp()
-  };
-  
-  // 기존 기록 확인
-  const chatHistoryRef = collection(db, 'chatHistory');
-  const q = query(
-    chatHistoryRef,
-    where('userId', '==', currentUser.uid),
-    where('date', '==', date),
-    where('type', '==', 'nutritionChat')
-  );
-  const querySnapshot = await getDocs(q);
-  
-  if (!querySnapshot.empty) {
-    // 기존 기록 업데이트
-    const existingDoc = querySnapshot.docs[0];
-    await updateDoc(doc(db, 'chatHistory', existingDoc.id), chatData);
-    console.log('영양 브리핑 챗봇 대화 업데이트 완료:', existingDoc.id);
-    return existingDoc.id;
-  } else {
-    // 새 기록 생성
-    chatData.createdAt = serverTimestamp();
-    const docRef = await addDoc(collection(db, 'chatHistory'), chatData);
-    console.log('영양 브리핑 챗봇 대화 저장 완료:', docRef.id);
-    return docRef.id;
-  }
-}
-
-// 페이지를 떠날 때 대화 저장하지 않음 (대화 기록 기능 제거)
-
 // 사용자 인증 상태 확인
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
@@ -2661,23 +2197,6 @@ if (auth) {
       console.log('✅ 사용자 로그인:', user.email);
       // BMR 정보 불러오기
       await loadUserBMR();
-      
-      // 음식 기록 탭 열기 플래그 확인
-      const openFoodRecordTab = localStorage.getItem('openFoodRecordTab');
-      if (openFoodRecordTab === 'true' && window.location.pathname.includes('student.html')) {
-        // 음식 기록 탭 열기
-        localStorage.removeItem('openFoodRecordTab'); // 플래그 제거
-        chatbotSection.classList.add('hidden');
-        recordSection.classList.remove('hidden');
-        // 음식 기록 섹션 초기화 (메뉴 로드 포함)
-        await initializeRecordSection();
-        return;
-      }
-      
-      // 일반적으로는 챗봇 시작
-      if (window.location.pathname.includes('student.html')) {
-startChatbot();
-      }
     } else {
       currentUser = null;
       userBMR = null;
@@ -2698,9 +2217,7 @@ startChatbot();
   if (window.location.pathname.includes('student.html')) {
     console.error('❌ Firebase 설정이 필요합니다. .env 파일을 확인해주세요.');
   }
-  
-  // Firebase가 없어도 페이지 로드 시 챗봇 시작 시도
-  if (window.location.pathname.includes('student.html')) {
-    startChatbot();
-  }
 }
+
+// 페이지 로드 시 챗봇 시작
+startChatbot();
