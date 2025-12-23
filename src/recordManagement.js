@@ -814,7 +814,6 @@ async function openEditLunchModal(date, docId) {
     updateLunchEditCalories();
     
     // 모달 표시
-    const modal = document.getElementById('edit-lunch-modal');
     modal.dataset.date = date;
     modal.dataset.docId = docId;
     modal.classList.remove('hidden');
@@ -936,7 +935,6 @@ async function saveLunchEdit() {
   
   try {
     // 수정된 메뉴 아이템 수집
-    const modal = document.getElementById('edit-lunch-modal');
     const menuCaloriesMap = JSON.parse(modal.dataset.menuCalories || '{}');
     const menuItems = [];
     const lunchMenuEditList = document.getElementById('lunch-menu-edit-list');
